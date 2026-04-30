@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Seattle Drinking Fountains</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div id="map"></div>
+
+  <div id="search-bar">
+    <form id="search-form">
+      <input
+        id="search-input"
+        type="text"
+        placeholder="Search address, intersection, or landmark"
+        autocomplete="off"
+        enterkeyhint="search"
+      >
+      <button type="submit" id="search-btn" aria-label="Search">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="11" cy="11" r="8"/>
+          <line x1="21" y1="21" x2="16.65" y2="16.65"/>
+        </svg>
+      </button>
+    </form>
+  </div>
+
+  <button id="locate-btn" aria-label="Use my location" title="Use my location">
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <circle cx="12" cy="12" r="3"/>
+      <path d="M12 2v3M12 19v3M2 12h3M19 12h3"/>
+    </svg>
+  </button>
+
+  <div id="layer-control">
+    <div id="layer-control-header">Layers</div>
+    <button class="layer-toggle active" data-source="city">
+      <span class="layer-swatch city"></span> Seattle City GIS
+    </button>
+    <button class="layer-toggle active" data-source="osm">
+      <span class="layer-swatch osm"></span> OpenStreetMap
+    </button>
+  </div>
+
+  <div id="filter-bar">
+    <button class="filter-toggle" data-filter="running">Running</button>
+    <button class="filter-toggle" data-filter="accessible">Accessible</button>
+  </div>
+
+  <div id="fountain-count"></div>
+
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
