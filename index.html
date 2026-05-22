@@ -4,6 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>Seattle Drinking Fountains</title>
+  <link rel="icon" type="image/svg+xml" href="favicon.svg">
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
   <link rel="stylesheet" href="style.css">
 </head>
@@ -35,10 +36,13 @@
     </svg>
   </button>
 
-  <div id="layer-control">
+  <div id="layer-control" class="hidden">
     <div id="layer-control-header">Layers</div>
     <button class="layer-toggle active" data-source="city">
       <span class="layer-swatch city"></span> Seattle City GIS
+    </button>
+    <button class="layer-suboption" data-option="city-unique">
+      <span class="checkbox"></span> Show only those not in OSM
     </button>
     <button class="layer-toggle active" data-source="osm">
       <span class="layer-swatch osm"></span> OpenStreetMap
@@ -46,9 +50,17 @@
   </div>
 
   <div id="filter-bar">
-    <button class="filter-toggle" data-filter="running">Running</button>
     <button class="filter-toggle" data-filter="accessible">Accessible</button>
+    <button class="filter-toggle" data-filter="bottle">Bottle Filler</button>
+    <button class="filter-toggle" data-filter="dog">Dog Bowl</button>
   </div>
+
+  <button id="power-user-btn" aria-label="Toggle power user mode" title="Power user mode">
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <circle cx="12" cy="12" r="3"/>
+      <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+    </svg>
+  </button>
 
   <div id="fountain-count"></div>
 

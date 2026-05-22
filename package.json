@@ -1,0 +1,28 @@
+{
+  "name": "drinking-fountains-everywhere",
+  "version": "1.0.0",
+  "description": "As an avid urban runner, I'm always on the lookout for sources of clean drinking water so that I don't have to wear a pack or carry water with me, especially on longer runs. The city of Seattle has many public water fountains, but they are not always easy to locate, or are sometimes shut off. I want to know that I will have access to clean drinking water on my running routes. Access to clean water is a basic human right, yet even in urban areas with high standards of living, public drinking water can be elusive.",
+  "main": "app.js",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "db:schema": "wrangler d1 execute drinking-fountains-db --file=worker/schema.sql",
+    "db:schema:local": "wrangler d1 execute drinking-fountains-db --local --file=worker/schema.sql",
+    "db:seed": "node worker/seed.js > worker/seed-data.sql && wrangler d1 execute drinking-fountains-db --file=worker/seed-data.sql",
+    "db:seed:local": "node worker/seed.js > worker/seed-data.sql && wrangler d1 execute drinking-fountains-db --local --file=worker/seed-data.sql"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/tillmane/drinking-fountains-everywhere.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/tillmane/drinking-fountains-everywhere/issues"
+  },
+  "homepage": "https://github.com/tillmane/drinking-fountains-everywhere#readme",
+  "devDependencies": {
+    "wrangler": "^4.87.0"
+  }
+}

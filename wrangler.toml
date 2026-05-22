@@ -1,0 +1,8 @@
+name = "drinking-fountains-api"
+main = "worker/index.js"
+compatibility_date = "2024-12-01"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "drinking-fountains-db"
+database_id = "6290a836-2441-42ac-91f3-c42403cd8a5d"
