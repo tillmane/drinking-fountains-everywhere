@@ -1,6 +1,9 @@
 name = "drinking-fountains-api"
 main = "worker/index.js"
-compatibility_date = "2024-12-01"
+compatibility_date = "2025-01-01"
+
+[vars]
+ALLOWED_ORIGIN = "https://fountainsforall.tillworks.com"
 
 [[d1_databases]]
 binding = "DB"

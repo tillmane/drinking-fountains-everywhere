@@ -23,7 +23,8 @@ Create a map of public water fountains for urban recreationists and others to ea
 - Browser `navigator.geolocation` for the "locate me" feature.
 
 **Hosting:**
-- Static site hosting (Netlify, Vercel, Cloudflare Pages, or GitHub Pages — TBD). The app is fully client-side for V1.
+- **Frontend:** [Cloudflare Pages](https://pages.cloudflare.com/) — auto-deploys from `main` branch on push, no build step (static files served from repo root). Live at `fountainsforall.tillworks.com`.
+- **Backend:** Cloudflare Workers at `drinking-fountains-api.tillmane.workers.dev`. Deploy with `npm run deploy`.
 
 **Backend (V2.1+):**
 - [Cloudflare Workers](https://workers.cloudflare.com/) + [D1](https://developers.cloudflare.com/d1/) (SQLite at the edge).
@@ -51,6 +52,40 @@ Ratings and other user-contributed data attach to a **local fountain identifier*
 
 Upstream sources are matched to local fountains by **proximity within 30 meters**. Analysis of current data shows ~92 of 212 Seattle City GIS fountains have an OSM match at this threshold, with the match curve plateauing between 20-30m.
 
+## Deployment
+
+### Frontend (Cloudflare Pages)
+
+Connected to the `main` branch of this repo. Pushes to `main` trigger an automatic deploy. No build step — Pages serves static files from the repo root (`index.html`, `app.js`, `style.css`, `favicon.svg`, `_headers`).
+
+**Setup (one-time):**
+1. CF Dashboard → Pages → Create a project → Connect to Git → select this repo
+2. Build settings: leave blank (no build command, output directory `/`)
+3. Add custom domain `fountainsforall.tillworks.com` → CF issues TLS cert
+4. At your registrar, add `CNAME fountainsforall → <project>.pages.dev`
+5. CF Zero Trust → Access → Applications → add the Pages URL, policy: Allow email = your address
+
+### Worker (Cloudflare Workers + D1)
+
+```bash
+npm run deploy        # deploys worker/index.js
+npm run db:schema     # applies schema.sql to production D1
+npm run db:seed       # fetches upstream data and seeds production D1
+```
+
+Local development:
+```bash
+npm run dev                # worker on localhost:8787
+npm run db:schema:local    # schema against local D1
+npm run db:seed:local      # seed local D1
+```
+
+**CORS:** `ALLOWED_ORIGIN` in `wrangler.toml` restricts API responses to the Pages domain. During local dev, temporarily set to `*` or `http://localhost:PORT`.
+
+**Rate limiting:** Add a Cloudflare WAF rate-limiting rule in the CF dashboard: match `drinking-fountains-api.tillmane.workers.dev`, POST requests, threshold 20 req/min per IP.
+
+**Logs:** `wrangler tail` streams live structured JSON logs. All endpoints log `{ endpoint, fountainId, devicePrefix, status, ms }` on success and `{ endpoint, error, ms }` on failure.
+
 ## Requirements
 
 **V1:**
@@ -72,10 +107,14 @@ Upstream sources are matched to local fountains by **proximity within 30 meters*
 - Backend: Cloudflare Workers + D1, deployed at `drinking-fountains-api.tillmane.workers.dev`
 
 **V2.2:**
-- Publish site to a tillworks.com subdomain
-- Do nightly backups of data (or are backups or some other fallback included in D1 by default?)
-- Apply safeguards against OWASP top 10
-- Implement logging
+- ✅ Publish frontend to Cloudflare Pages at `fountainsforall.tillworks.com`
+- ✅ Gate access with Cloudflare Access (email allowlist); add pilot users in CF Zero Trust dashboard
+- ✅ Structured request logging on all Worker endpoints (ephemeral — view via `wrangler tail` or CF dashboard)
+- ✅ CORS restricted to `fountainsforall.tillworks.com` via `ALLOWED_ORIGIN` env var in `wrangler.toml`
+- ✅ Security response headers (`_headers` file): `X-Frame-Options`, `X-Content-Type-Options`, `Referrer-Policy`, `Permissions-Policy`
+- ✅ Rate limiting: configure a Cloudflare WAF rate-limiting rule on POST endpoints (20 req/min per IP) — manual step in CF dashboard, no code
+- D1 backups: use D1 Time Travel (point-in-time restore, 30-day retention) — no setup required; manual export available via `wrangler d1 export`
+- Persistent request logging (pre-pilot): add D1 `request_log` table before opening to pilot group
 
 **V3:**
 - Allow users to rate water fountains for cleanliness, water pressure, taste
