@@ -1,7 +1,7 @@
 (function () {
   "use strict";
 
-  var API_BASE = "https://drinking-fountains-api.tillmane.workers.dev";
+  var API_BASE = "https://drinking-fountains-api.urbanfreerunners.com";
 
   var ARCGIS_URL =
     "https://services.arcgis.com/ZOyb2t4B0UYuYNYH/arcgis/rest/services/Drinking_Fountain/FeatureServer/0/query";
