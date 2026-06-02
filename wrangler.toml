@@ -3,7 +3,7 @@ main = "worker/index.js"
 compatibility_date = "2025-01-01"
 
 [vars]
-ALLOWED_ORIGIN = "https://drinking-fountains-everywhere.pages.dev"
+ALLOWED_ORIGIN = "https://fountainsforall.urbanfreerunners.com"
 
 [[d1_databases]]
 binding = "DB"
