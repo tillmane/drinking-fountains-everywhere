@@ -23,8 +23,8 @@ Create a map of public water fountains for urban recreationists and others to ea
 - Browser `navigator.geolocation` for the "locate me" feature.
 
 **Hosting:**
-- **Frontend:** [Cloudflare Pages](https://pages.cloudflare.com/) — auto-deploys from `main` branch on push, no build step (static files served from repo root). Live at `fountainsforall.tillworks.com`.
-- **Backend:** Cloudflare Workers at `drinking-fountains-api.tillmane.workers.dev`. Deploy with `npm run deploy`.
+- **Frontend:** [Cloudflare Pages](https://pages.cloudflare.com/) — auto-deploys from `main` branch on push, no build step (static files served from repo root). Live at `fountainsforall.urbanfreerunners.com`.
+- **Backend:** Cloudflare Workers at `drinking-fountains-api.urbanfreerunners.com`. Deploy with `npm run deploy`.
 
 **Backend (V2.1+):**
 - [Cloudflare Workers](https://workers.cloudflare.com/) + [D1](https://developers.cloudflare.com/d1/) (SQLite at the edge).
@@ -61,9 +61,7 @@ Connected to the `main` branch of this repo. Pushes to `main` trigger an automat
 **Setup (one-time):**
 1. CF Dashboard → Pages → Create a project → Connect to Git → select this repo
 2. Build settings: leave blank (no build command, output directory `/`)
-3. Add custom domain `fountainsforall.tillworks.com` → CF issues TLS cert
-4. At your registrar, add `CNAME fountainsforall → <project>.pages.dev`
-5. CF Zero Trust → Access → Applications → add the Pages URL, policy: Allow email = your address
+3. Add custom domain `fountainsforall.urbanfreerunners.com` (domain on CF DNS — CF issues TLS cert automatically)
 
 ### Worker (Cloudflare Workers + D1)
 
@@ -82,7 +80,7 @@ npm run db:seed:local      # seed local D1
 
 **CORS:** `ALLOWED_ORIGIN` in `wrangler.toml` restricts API responses to the Pages domain. During local dev, temporarily set to `*` or `http://localhost:PORT`.
 
-**Rate limiting:** Add a Cloudflare WAF rate-limiting rule in the CF dashboard: match `drinking-fountains-api.tillmane.workers.dev`, POST requests, threshold 20 req/min per IP.
+**Rate limiting:** ✅ CF WAF rate-limiting rule active on `drinking-fountains-api.urbanfreerunners.com` — 3 POST req / 10 sec per IP, block for 10 sec. Rule applied via Zone Ruleset API (`http_ratelimit` phase, characteristics: `ip.src` + `cf.colo.id`).
 
 **Logs:** `wrangler tail` streams live structured JSON logs. All endpoints log `{ endpoint, fountainId, devicePrefix, status, ms }` on success and `{ endpoint, error, ms }` on failure.
 
@@ -118,12 +116,17 @@ npm run db:seed:local      # seed local D1
 
 **V3:**
 - Allow users to rate water fountains for cleanliness, water pressure, taste
+- Allow users to add water fountains
+  - Require access restriction input (either confirm open to the public or add access restriction)
+  - Add way for other users to verify
 
 **V4:**
 - Add public bathrooms
 
 **Backlog:**
 - Fix map controls positioning
+- Add ability to rate Seattle City GIS fountains
+- Add a map legend (map pin colors)
 - Add admin filter to show edited and unedited fountains with counts of each
 - Add doesn't exist option which requires validation
 - Pre-load user's location on page load to reduce processing time when using locator button. Show polite error message if location services are disabled in the browser or on the device
@@ -138,8 +141,5 @@ npm run db:seed:local      # seed local D1
 - DB seed refresh strategy (detect new upstream fountains, periodic re-seed)
 - Check Seattle City GIS data quality: do the City GIS fountains not in OSM actually exist? Is the Seattle City GIS data valuable?
 - Create a map showing the availability of working fountains in lower-income areas
-- Allow users to add water fountains
-	- Require access restriction input (either confirm open to the public or add access restriction)
-	- Add way for other users to verify
 - Identify and add additional public data sources
 - Add link to Google street view?
