@@ -26,6 +26,19 @@ function log(level, endpoint, extra) {
   }
 }
 
+async function writeLog(db, endpoint, fountainId, devicePrefix, status, ms) {
+  try {
+    await db
+      .prepare(
+        "INSERT INTO request_log (endpoint, fountain_id, device_pfx, status, ms) VALUES (?, ?, ?, ?, ?)"
+      )
+      .bind(endpoint, fountainId ?? null, devicePrefix ?? null, status, ms)
+      .run();
+  } catch (e) {
+    console.error(JSON.stringify({ endpoint: "writeLog", error: e.message }));
+  }
+}
+
 async function handleGetFountains(db, cors) {
   const t0 = Date.now();
   try {
@@ -181,7 +194,9 @@ async function handlePostRating(db, fountainId, request, cors) {
       .bind(fountainId)
       .first();
 
-    log("info", "POST /fountains/:id/rating", { fountainId, devicePrefix, score, status: 200, ms: Date.now() - t0 });
+    const ms = Date.now() - t0;
+    log("info", "POST /fountains/:id/rating", { fountainId, devicePrefix, score, status: 200, ms });
+    await writeLog(db, "POST /rating", fountainId, devicePrefix, 200, ms);
     return json({
       fountain_id: fountainId,
       avg_rating: agg.avg_rating,
@@ -190,7 +205,9 @@ async function handlePostRating(db, fountainId, request, cors) {
       your_score: score,
     }, 200, cors);
   } catch (e) {
-    log("error", "POST /fountains/:id/rating", { fountainId, devicePrefix, error: e.message, ms: Date.now() - t0 });
+    const ms = Date.now() - t0;
+    log("error", "POST /fountains/:id/rating", { fountainId, devicePrefix, error: e.message, ms });
+    await writeLog(db, "POST /rating", fountainId, devicePrefix, 500, ms);
     return err("Internal server error", 500, cors);
   }
 }
@@ -251,7 +268,9 @@ async function handlePostReport(db, fountainId, request, cors) {
       .bind(fountainId)
       .first();
 
-    log("info", "POST /fountains/:id/report", { fountainId, devicePrefix, status, httpStatus: 200, ms: Date.now() - t0 });
+    const ms = Date.now() - t0;
+    log("info", "POST /fountains/:id/report", { fountainId, devicePrefix, status, httpStatus: 200, ms });
+    await writeLog(db, "POST /report", fountainId, devicePrefix, 200, ms);
     return json({
       fountain_id: fountainId,
       reported_off: agg.off_count > 0,
@@ -259,7 +278,9 @@ async function handlePostReport(db, fountainId, request, cors) {
       last_off_report_at: agg.last_off_at,
     }, 200, cors);
   } catch (e) {
-    log("error", "POST /fountains/:id/report", { fountainId, devicePrefix, error: e.message, ms: Date.now() - t0 });
+    const ms = Date.now() - t0;
+    log("error", "POST /fountains/:id/report", { fountainId, devicePrefix, error: e.message, ms });
+    await writeLog(db, "POST /report", fountainId, devicePrefix, 500, ms);
     return err("Internal server error", 500, cors);
   }
 }
@@ -323,10 +344,14 @@ async function handlePostAttributes(db, fountainId, request, cors) {
       if (r.attribute === "dog_bowl") out.user_dog_bowl = r.value === 1;
     }
 
-    log("info", "POST /fountains/:id/attributes", { fountainId, devicePrefix, attribute, value, status: 200, ms: Date.now() - t0 });
+    const ms = Date.now() - t0;
+    log("info", "POST /fountains/:id/attributes", { fountainId, devicePrefix, attribute, value, status: 200, ms });
+    await writeLog(db, "POST /attributes", fountainId, devicePrefix, 200, ms);
     return json(out, 200, cors);
   } catch (e) {
-    log("error", "POST /fountains/:id/attributes", { fountainId, devicePrefix, error: e.message, ms: Date.now() - t0 });
+    const ms = Date.now() - t0;
+    log("error", "POST /fountains/:id/attributes", { fountainId, devicePrefix, error: e.message, ms });
+    await writeLog(db, "POST /attributes", fountainId, devicePrefix, 500, ms);
     return err("Internal server error", 500, cors);
   }
 }

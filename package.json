@@ -6,9 +6,9 @@
   "scripts": {
     "dev": "wrangler dev",
     "deploy": "wrangler deploy",
-    "db:schema": "wrangler d1 execute drinking-fountains-db --file=worker/schema.sql",
+    "db:schema": "wrangler d1 execute drinking-fountains-db --remote --file=worker/schema.sql",
     "db:schema:local": "wrangler d1 execute drinking-fountains-db --local --file=worker/schema.sql",
-    "db:seed": "node worker/seed.js > worker/seed-data.sql && wrangler d1 execute drinking-fountains-db --file=worker/seed-data.sql",
+    "db:seed": "node worker/seed.js > worker/seed-data.sql && wrangler d1 execute drinking-fountains-db --remote --file=worker/seed-data.sql",
     "db:seed:local": "node worker/seed.js > worker/seed-data.sql && wrangler d1 execute drinking-fountains-db --local --file=worker/seed-data.sql"
   },
   "repository": {
