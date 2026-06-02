@@ -14,7 +14,7 @@ jobs:
 
       - name: Build email list and update CF Access policy
         env:
-          CF_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CF_API_TOKEN: ${{ secrets.CLOUDFLARE_API_HIGHTRUST_TOKEN }}
           CF_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           APP_ID: "11d95cea-0bcb-499d-8339-71687467ca24"
           POLICY_ID: "88b8d37c-3db8-4b9d-bd2d-72b54a999955"
