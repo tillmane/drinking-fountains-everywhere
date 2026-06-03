@@ -277,6 +277,17 @@
   function buildOsmPopup(el) {
     var tags = el.tags || {};
     var local = lookupFountain("osm", String(el.id));
+
+    var title = null;
+    if (local) {
+      var citySource = (local.sources || []).find(function (s) { return s.source_type === "city_gis"; });
+      if (citySource) {
+        var cityRecord = sources.city.data.find(function (f) { return String(f.OBJECTID) === citySource.source_id; });
+        if (cityRecord && cityRecord.PARK) title = cityRecord.PARK;
+      }
+    }
+    if (!title && tags.name && tags.name !== "Drinking Fountain") title = tags.name;
+
     var details = "";
     if (tags.wheelchair === "yes")
       details += '<div><span class="detail-label">Accessible:</span> Yes</div>';
@@ -289,7 +300,7 @@
     details += '<div class="popup-source">OpenStreetMap</div>';
 
     return '<div class="fountain-popup">' +
-      '<h3>' + (tags.name || "Drinking Fountain") + '</h3>' +
+      (title ? '<h3>' + title + '</h3>' : '') +
       '<div class="details">' + details + '</div>' +
       buildRatingSection("osm", String(el.id), false) +
     '</div>';
