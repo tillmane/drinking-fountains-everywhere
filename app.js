@@ -39,6 +39,8 @@
   }).addTo(map);
 
   var userMarker = null;
+  var cachedPosition = null;
+  var locationDenied = false;
 
   var activeFilters = {
     accessible: false,
@@ -100,12 +102,26 @@
     return hasDogBowl(sourceType, sourceId, sourceData);
   }
 
-  function makeIcon(color) {
+  var X_ICON = '<line x1="9" y1="8" x2="19" y2="18" stroke="#fff" stroke-width="2.2" stroke-linecap="round" opacity="0.9"/>' +
+    '<line x1="19" y1="8" x2="9" y2="18" stroke="#fff" stroke-width="2.2" stroke-linecap="round" opacity="0.9"/>';
+
+  var FACE_EYES = '<circle cx="10" cy="9" r="1.5" fill="#fff" opacity="0.9"/>' +
+    '<circle cx="18" cy="9" r="1.5" fill="#fff" opacity="0.9"/>';
+  var FACE_INNER = {
+    bigSmile: FACE_EYES + '<path d="M8 13 Q14 19.5 20 13" stroke="#fff" stroke-width="1.8" fill="none" stroke-linecap="round" opacity="0.9"/>',
+    smile:    FACE_EYES + '<path d="M9 13 Q14 17 19 13" stroke="#fff" stroke-width="1.8" fill="none" stroke-linecap="round" opacity="0.9"/>',
+    neutral:  FACE_EYES + '<line x1="9" y1="13" x2="19" y2="13" stroke="#fff" stroke-width="1.8" stroke-linecap="round" opacity="0.9"/>',
+    frown:    FACE_EYES + '<path d="M9 14 Q14 10 19 14" stroke="#fff" stroke-width="1.8" fill="none" stroke-linecap="round" opacity="0.9"/>',
+    bigFrown: FACE_EYES + '<path d="M8 15.5 Q14 8.5 20 15.5" stroke="#fff" stroke-width="1.8" fill="none" stroke-linecap="round" opacity="0.9"/>',
+    question: '<text x="14" y="17" text-anchor="middle" fill="#fff" font-size="13" font-weight="bold" font-family="Arial, sans-serif" opacity="0.9">?</text>',
+  };
+
+  function makeIcon(color, inner) {
     return L.divIcon({
       className: "fountain-marker",
       html: '<svg width="28" height="36" viewBox="0 0 28 36" xmlns="http://www.w3.org/2000/svg">' +
         '<path d="M14 0C6.27 0 0 6.27 0 14c0 10.5 14 22 14 22s14-11.5 14-22C28 6.27 21.73 0 14 0z" fill="' + color + '" stroke="#fff" stroke-width="1.5"/>' +
-        '<path d="M14 7c0 0-5 5.5-5 9a5 5 0 0 0 10 0c0-3.5-5-9-5-9z" fill="#fff" opacity="0.9"/>' +
+        inner +
       '</svg>',
       iconSize: [28, 36],
       iconAnchor: [14, 36],
@@ -114,14 +130,28 @@
   }
 
   var icons = {
-    cityOn:      makeIcon("#2563eb"),
-    cityOff:     makeIcon("#c62828"),
-    osm:         makeIcon("#0891b2"),
-    reportedOff: makeIcon("#e67e22"),
+    cityOff:     makeIcon("#c62828", X_ICON),
+    reportedOff: makeIcon("#e67e22", X_ICON),
   };
 
   function lookupFountain(sourceType, sourceId) {
     return fountainIndex[sourceType + ":" + sourceId] || null;
+  }
+
+  function getFaceForFountain(sourceType, sourceId) {
+    if (!fountainIndexLoaded) return "question";
+    var local = lookupFountain(sourceType, sourceId);
+    if (!local) return "question";
+    if (!local.last_rated_at) return "question";
+    var sixMonthsAgo = new Date();
+    sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
+    if (new Date(local.last_rated_at) < sixMonthsAgo) return "question";
+    var r = local.avg_rating;
+    if (r >= 4.5) return "bigSmile";
+    if (r >= 3.5) return "smile";
+    if (r >= 2.5) return "neutral";
+    if (r >= 1.5) return "frown";
+    return "bigFrown";
   }
 
   function formatRelativeDate(isoString) {
@@ -268,12 +298,15 @@
   function getCityIcon(f) {
     if (!isCityRunning(f)) return icons.cityOff;
     if (isReportedOff("city_gis", String(f.OBJECTID))) return icons.reportedOff;
-    return icons.cityOn;
+    var face = getFaceForFountain("city_gis", String(f.OBJECTID));
+    return makeIcon("#2563eb", FACE_INNER[face]);
   }
 
   function getOsmIcon(el) {
     if (isReportedOff("osm", String(el.id))) return icons.reportedOff;
-    return icons.osm;
+    var color = powerUserMode ? "#0891b2" : "#2563eb";
+    var face = getFaceForFountain("osm", String(el.id));
+    return makeIcon(color, FACE_INNER[face]);
   }
 
   function renderCity() {
@@ -595,10 +628,30 @@
   var locateBtn = document.getElementById("locate-btn");
   var locating = false;
 
+  function preloadLocation() {
+    if (!navigator.geolocation) return;
+    navigator.geolocation.getCurrentPosition(
+      function (pos) { cachedPosition = pos; },
+      function (err) { if (err.code === 1) locationDenied = true; },
+      { enableHighAccuracy: false, timeout: 10000, maximumAge: 60000 }
+    );
+  }
+
   function locateUser() {
     if (locating) return;
     if (!navigator.geolocation) {
       showError("Geolocation is not supported by your browser.");
+      return;
+    }
+    if (locationDenied) {
+      showError("Location access denied. Check your browser or device settings.");
+      return;
+    }
+    var cacheAgeSec = cachedPosition
+      ? (Date.now() - cachedPosition.timestamp) / 1000
+      : Infinity;
+    if (cacheAgeSec < 60) {
+      panToLocation(cachedPosition.coords.latitude, cachedPosition.coords.longitude);
       return;
     }
     locating = true;
@@ -609,6 +662,7 @@
         navigator.geolocation.clearWatch(watchId);
         locating = false;
         locateBtn.classList.remove("locating");
+        cachedPosition = pos;
         panToLocation(pos.coords.latitude, pos.coords.longitude);
       },
       function (err) {
@@ -616,7 +670,8 @@
         locating = false;
         locateBtn.classList.remove("locating");
         if (err.code === 1) {
-          showError("Location access denied. Check your browser permissions.");
+          locationDenied = true;
+          showError("Location access denied. Check your browser or device settings.");
         } else {
           showError("Unable to get your location. Try again.");
         }
@@ -638,11 +693,22 @@
 
   var powerUserBtn = document.getElementById("power-user-btn");
   var layerControl = document.getElementById("layer-control");
+  var legendAdminRow = document.querySelector(".legend-admin-row");
 
   powerUserBtn.addEventListener("click", function () {
     powerUserMode = !powerUserMode;
     powerUserBtn.classList.toggle("active");
     layerControl.classList.toggle("hidden", !powerUserMode);
+    legendAdminRow.classList.toggle("hidden", !powerUserMode);
+    renderAll();
+  });
+
+  var legendToggle = document.getElementById("legend-toggle");
+  var legendBody = document.getElementById("legend-body");
+
+  legendToggle.addEventListener("click", function () {
+    var collapsed = legendBody.classList.toggle("collapsed");
+    legendToggle.textContent = collapsed ? "▸" : "▾";
   });
 
   var cityUniqueBtn = document.querySelector('.layer-suboption[data-option="city-unique"]');
@@ -677,4 +743,5 @@
   fetchCity();
   fetchOsm();
   fetchFountainIndex();
+  preloadLocation();
 })();

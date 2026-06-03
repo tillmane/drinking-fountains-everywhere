@@ -523,3 +523,64 @@ html, body {
   cursor: pointer;
   user-select: none;
 }
+
+#legend {
+  position: absolute;
+  bottom: 76px;
+  right: 12px;
+  z-index: 1000;
+  background: #fff;
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+  padding: 8px 12px;
+  min-width: 140px;
+  font-size: 13px;
+}
+
+#legend-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+
+#legend-title {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #888;
+}
+
+#legend-toggle {
+  border: none;
+  background: none;
+  cursor: pointer;
+  color: #aaa;
+  font-size: 14px;
+  line-height: 1;
+  padding: 0;
+  display: flex;
+  align-items: center;
+}
+
+#legend-toggle:hover {
+  color: #555;
+}
+
+#legend-body.collapsed {
+  display: none;
+}
+
+.legend-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 3px 0;
+  color: #333;
+}
+
+.legend-row.hidden {
+  display: none;
+}
