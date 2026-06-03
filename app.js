@@ -703,10 +703,11 @@
     renderAll();
   });
 
+  var legendEl = document.getElementById("legend");
   var legendToggle = document.getElementById("legend-toggle");
   var legendBody = document.getElementById("legend-body");
 
-  legendToggle.addEventListener("click", function () {
+  legendEl.addEventListener("click", function () {
     var collapsed = legendBody.classList.toggle("collapsed");
     legendToggle.textContent = collapsed ? "▸" : "▾";
   });
