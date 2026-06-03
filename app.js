@@ -102,18 +102,18 @@
     return hasDogBowl(sourceType, sourceId, sourceData);
   }
 
-  var X_ICON = '<line x1="9" y1="8" x2="19" y2="18" stroke="#fff" stroke-width="2.2" stroke-linecap="round" opacity="0.9"/>' +
-    '<line x1="19" y1="8" x2="9" y2="18" stroke="#fff" stroke-width="2.2" stroke-linecap="round" opacity="0.9"/>';
+  var X_ICON = '<line x1="9" y1="10" x2="19" y2="20" stroke="#fff" stroke-width="2.2" stroke-linecap="round" opacity="0.9"/>' +
+    '<line x1="19" y1="10" x2="9" y2="20" stroke="#fff" stroke-width="2.2" stroke-linecap="round" opacity="0.9"/>';
 
-  var FACE_EYES = '<circle cx="10" cy="9" r="1.5" fill="#fff" opacity="0.9"/>' +
-    '<circle cx="18" cy="9" r="1.5" fill="#fff" opacity="0.9"/>';
+  var FACE_EYES = '<circle cx="10" cy="11" r="1.5" fill="#fff" opacity="0.9"/>' +
+    '<circle cx="18" cy="11" r="1.5" fill="#fff" opacity="0.9"/>';
   var FACE_INNER = {
-    bigSmile: FACE_EYES + '<path d="M8 13 Q14 19.5 20 13" stroke="#fff" stroke-width="1.8" fill="none" stroke-linecap="round" opacity="0.9"/>',
-    smile:    FACE_EYES + '<path d="M9 13 Q14 17 19 13" stroke="#fff" stroke-width="1.8" fill="none" stroke-linecap="round" opacity="0.9"/>',
-    neutral:  FACE_EYES + '<line x1="9" y1="13" x2="19" y2="13" stroke="#fff" stroke-width="1.8" stroke-linecap="round" opacity="0.9"/>',
-    frown:    FACE_EYES + '<path d="M9 14 Q14 10 19 14" stroke="#fff" stroke-width="1.8" fill="none" stroke-linecap="round" opacity="0.9"/>',
-    bigFrown: FACE_EYES + '<path d="M8 15.5 Q14 8.5 20 15.5" stroke="#fff" stroke-width="1.8" fill="none" stroke-linecap="round" opacity="0.9"/>',
-    question: '<text x="14" y="17" text-anchor="middle" fill="#fff" font-size="13" font-weight="bold" font-family="Arial, sans-serif" opacity="0.9">?</text>',
+    bigSmile: FACE_EYES + '<path d="M8 17 Q14 22 20 17" stroke="#fff" stroke-width="1.8" fill="none" stroke-linecap="round" opacity="0.9"/>',
+    smile:    FACE_EYES + '<path d="M9 17 Q14 20 19 17" stroke="#fff" stroke-width="1.8" fill="none" stroke-linecap="round" opacity="0.9"/>',
+    neutral:  FACE_EYES + '<line x1="9" y1="17" x2="19" y2="17" stroke="#fff" stroke-width="1.8" stroke-linecap="round" opacity="0.9"/>',
+    frown:    FACE_EYES + '<path d="M9 17 Q14 13 19 17" stroke="#fff" stroke-width="1.8" fill="none" stroke-linecap="round" opacity="0.9"/>',
+    bigFrown: FACE_EYES + '<path d="M8 18.5 Q14 12 20 18.5" stroke="#fff" stroke-width="1.8" fill="none" stroke-linecap="round" opacity="0.9"/>',
+    question: '<text x="14" y="19" text-anchor="middle" fill="#fff" font-size="15" font-weight="bold" font-family="Arial, sans-serif" opacity="0.9">?</text>',
   };
 
   function makeIcon(color, inner) {
