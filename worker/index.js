@@ -1,6 +1,8 @@
-function corsHeaders(allowedOrigin) {
+function corsHeaders(allowedOrigin, requestOrigin) {
+  const allowed = [allowedOrigin, "http://localhost:8080"];
+  const origin = allowed.includes(requestOrigin) ? requestOrigin : allowedOrigin;
   return {
-    "Access-Control-Allow-Origin": allowedOrigin || "*",
+    "Access-Control-Allow-Origin": origin,
     "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
     "Access-Control-Allow-Headers": "Content-Type",
   };
@@ -358,7 +360,7 @@ async function handlePostAttributes(db, fountainId, request, cors) {
 
 export default {
   async fetch(request, env) {
-    const cors = corsHeaders(env.ALLOWED_ORIGIN);
+    const cors = corsHeaders(env.ALLOWED_ORIGIN, request.headers.get("Origin"));
 
     if (request.method === "OPTIONS") {
       return new Response(null, { status: 204, headers: cors });

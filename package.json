@@ -10,7 +10,8 @@
     "db:schema:local": "wrangler d1 execute drinking-fountains-db --local --file=worker/schema.sql",
     "db:seed": "node worker/seed.js > worker/seed-data.sql && wrangler d1 execute drinking-fountains-db --remote --file=worker/seed-data.sql",
     "db:seed:local": "node worker/seed.js > worker/seed-data.sql && wrangler d1 execute drinking-fountains-db --local --file=worker/seed-data.sql",
-    "resync:city-gis": "node worker/resync-city-gis.js > worker/resync-city-gis.sql && wrangler d1 execute drinking-fountains-db --remote --file=worker/resync-city-gis.sql"
+    "resync:city-gis": "node worker/resync-city-gis.js > worker/resync-city-gis.sql && wrangler d1 execute drinking-fountains-db --remote --file=worker/resync-city-gis.sql",
+    "serve": "npx serve . -p 8080"
   },
   "repository": {
     "type": "git",

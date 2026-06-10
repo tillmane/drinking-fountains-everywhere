@@ -16,12 +16,12 @@ A map of public water fountains with information about fountain conditions lets 
 
 ## Requirements
 
-**V1: POC << pushed April 29, 2026**
+### V1: POC (April 29, 2026)
 - Use publicly available data source(s)
 - Allow searching for nearby water fountains by address, intersection, or landmark
 - Give an indication whether a water fountain is currently expected to be running or if it has been shut off
 
-**V2.1: Add User Ratings Capability << pushed May 22, 2026**
+### V2.1: Add User Ratings Capability (pushed May 22, 2026)
 - Allow users to submit water fountain ratings on a scale of 1 to 5
 - Show the date of the last rating
 - Anonymous ratings using device identifier (localStorage UUID) for abuse control; one rating per device per fountain (upsert)
@@ -34,7 +34,7 @@ A map of public water fountains with information about fountain conditions lets 
 - User-contributed attributes stored separately from source data in D1; merged at display time and for filtering
 - Backend: Cloudflare Workers + D1, deployed at `drinking-fountains-api.tillmane.workers.dev`
 
-**V2.2: Publish to Production and Ready for Pilot Users << pushed June 2, 2026**
+### V2.2: Publish to Production and Ready for Pilot Users (pushed June 2, 2026)
 - Publish frontend to Cloudflare Pages at `fountainsforall.urbanfreerunning.com`
 - Gate access with Cloudflare Access (email allowlist)
 - Structured request logging on all Worker endpoints
@@ -44,27 +44,36 @@ A map of public water fountains with information about fountain conditions lets 
 - D1 backups: use D1 Time Travel (point-in-time restore, 30-day retention), plus scheduled snapshots to R2 objects
 - Persistent request logging (pre-pilot): add D1 `request_log` table before opening to pilot group
 
-**V3:**
-- Allow users to rate water fountains for cleanliness, water pressure, taste
+### V2.3: Make It Better for Pilot Users
+- Bugs/Dumb Stuff
+  - Add ability to rate Seattle City GIS fountains
+- UX Improvements
+  - Only show different-colored pins depending on data source when in Admin mode. The default pin color for regular users should be the darker blue.
+  - Fountains that have not been rated or that were rated over 6 months ago should have a different pin (color or question mark pin? Or show a smile in pins that have been rated, with degree of smile dependent on star rating)
+  - Pre-load user's location on page load to reduce processing time when using locator button. Show polite error message if location services are disabled in the browser or on the device
+  - Fix map controls positioning
+  - Add a map legend (map pin colors)
+  - OSM fountains are all named "Drinking Fountain" but Seattle GIS fountains have a name (park name etc.). Recommend dropping fountain titles and including the Seattle GIS fountain name in the small print next to the data source.
+  - When a user rates a fountain, update the icon to match the rating.
+- Admin Features
+  - Add admin filter to show edited and unedited fountains with counts of each
+  - Secure Admin mode (authentication/PIN for attribute editing)
+
+### V3:
+- Add doesn't exist option which requires validation
+- If a user rates a fountain less than 3 stars allow them to specify why: cleanliness, water pressure, taste, or location
 - Allow users to add water fountains
   - Require access restriction input (either confirm open to the public or add access restriction)
   - Add way for other users to verify
 
-**V4:**
+### V4:
 - Add public bathrooms
 
-**Backlog:**
-- Fix map controls positioning
-- Add ability to rate Seattle City GIS fountains
-- Add a map legend (map pin colors)
-- Add admin filter to show edited and unedited fountains with counts of each
-- Add doesn't exist option which requires validation
-- Pre-load user's location on page load to reduce processing time when using locator button. Show polite error message if location services are disabled in the browser or on the device
-- OSM fountains are all named "Drinking Fountain" but Seattle GIS fountains have a name (park name etc.). Recommend dropping fountain titles and including the Seattle GIS fountain name in the small print next to the data source.
-- Allow users to note any access limitations
+### Backlog:
+- Terms of Use
 - Tech stack and data source licensing audit
 - Accessibility audit
-- Secure power user mode (authentication/PIN for attribute editing)
+- Allow users to note any access limitations
 - Add branding
 - Add about pages with background information and project context
 - Caching strategy for upstream API fetches and the fountain index endpoint
@@ -127,6 +136,23 @@ Upstream sources are matched to local fountains by **proximity within 30 meters*
 
 ## Deployment
 
+### Release workflow
+
+All changes are reviewed locally before being pushed to `main`. Pushing to `main` automatically deploys the frontend via Cloudflare Pages. Worker changes require a separate `npm run deploy`.
+
+**Frontend changes:**
+1. Make changes to `index.html`, `app.js`, or `style.css`
+2. `npm run serve` — starts a local server at `http://localhost:8080`
+3. Open `http://localhost:8080` in the browser and review against live production data
+4. When satisfied: commit and push to `main` → Cloudflare Pages auto-deploys
+
+**Worker changes:**
+1. Make changes to `worker/index.js`
+2. Review logic; test locally with `npm run dev` if needed
+3. When satisfied: commit, push to `main`, then `npm run deploy`
+
+> The worker allows CORS from both `https://fountainsforall.urbanfreerunners.com` and `http://localhost:8080` so local review uses real production data.
+
 ### Frontend (Cloudflare Pages)
 
 Connected to the `main` branch of this repo. Pushes to `main` trigger an automatic deploy. No build step — Pages serves static files from the repo root (`index.html`, `app.js`, `style.css`, `favicon.svg`, `_headers`).
@@ -134,6 +160,7 @@ Connected to the `main` branch of this repo. Pushes to `main` trigger an automat
 ### Worker (Cloudflare Workers + D1)
 
 ```bash
+npm run serve            # serve frontend locally at localhost:8080 for review
 npm run deploy           # deploy worker/index.js to production
 npm run db:schema        # apply schema.sql to production D1 (idempotent)
 npm run db:seed          # fetch upstream data and seed production D1
