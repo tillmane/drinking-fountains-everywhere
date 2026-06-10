@@ -169,6 +169,15 @@ npm run db:schema:local  # apply schema to local D1
 npm run db:seed:local    # seed local D1
 ```
 
+### Refreshing local DB from a production backup
+
+1. Download a backup file from the `drinking-fountains-db-backups` R2 bucket (CF dashboard → R2 → bucket → click file → Download). Save it anywhere — e.g. `worker/prod-backup-<timestamp>.sql`.
+2. Run: `npm run db:restore-local -- worker/prod-backup-<timestamp>.sql`
+
+This wipes the local D1 state and loads the backup. The `worker/prod-backup-*.sql` pattern is gitignored.
+
+> **Note:** The backup action requires the `CLOUDFLARE_API_TOKEN` secret to have **D1 → Edit** permission to export data (not just schema).
+
 ### Access allowlist
 
 Edit `access-allowlist.txt` (one email per line, `#` for comments) and push to `main`. The `sync-access-allowlist` GitHub Action updates the CF Access policy automatically.
