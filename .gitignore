@@ -3,3 +3,6 @@ node_modules/
 .wrangler/
 worker/seed-data.sql
 worker/resync-city-gis.sql
+worker/prod-snapshot.sql
+worker/local-backup.sql
+worker/prod-backup-*.sql
