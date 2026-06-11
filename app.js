@@ -91,6 +91,14 @@
     return false;
   }
 
+  function fountainHasAccessible(sourceType, sourceId, sourceData) {
+    var local = lookupFountain(sourceType, sourceId);
+    if (local && local.user_accessible) return true;
+    if (sourceType === "city_gis") return isYes(sourceData.ACCESSIBLE_MODEL);
+    if (sourceType === "osm") return (sourceData.tags || {}).wheelchair === "yes";
+    return false;
+  }
+
   function fountainHasBottle(sourceType, sourceId, sourceData) {
     var local = lookupFountain(sourceType, sourceId);
     if (local && local.user_bottle_filler) return true;
@@ -339,7 +347,7 @@
     sources.city.layerGroup.clearLayers();
     sources.city.data.forEach(function (f) {
       if (f.LIFE_CYCLE_CODE !== "A") return;
-      if (activeFilters.accessible && !isYes(f.ACCESSIBLE_MODEL)) return;
+      if (activeFilters.accessible && !fountainHasAccessible("city_gis", String(f.OBJECTID), f)) return;
       if (activeFilters.bottle && !fountainHasBottle("city_gis", String(f.OBJECTID), f)) return;
       if (activeFilters.dog && !fountainHasDog("city_gis", String(f.OBJECTID), f)) return;
       if (layerOptions.cityUniqueOnly && cityHasOsmMatch(f)) return;
@@ -359,7 +367,7 @@
         var local = lookupFountain("osm", String(el.id));
         if (local && (local.sources || []).some(function (s) { return s.source_type === "city_gis"; })) return;
       }
-      if (activeFilters.accessible && tags.wheelchair !== "yes") return;
+      if (activeFilters.accessible && !fountainHasAccessible("osm", String(el.id), el)) return;
       if (activeFilters.bottle && !fountainHasBottle("osm", String(el.id), el)) return;
       if (activeFilters.dog && !fountainHasDog("osm", String(el.id), el)) return;
       if (!passesRatingFilter("osm", String(el.id))) return;
