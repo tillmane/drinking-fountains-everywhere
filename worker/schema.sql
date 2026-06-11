@@ -16,7 +16,7 @@ CREATE TABLE IF NOT EXISTS fountain_sources (
 CREATE TABLE IF NOT EXISTS ratings (
   fountain_id  INTEGER NOT NULL REFERENCES fountains(id),
   device_id    TEXT    NOT NULL,
-  score        INTEGER NOT NULL CHECK (score >= 1 AND score <= 5),
+  score        INTEGER NOT NULL CHECK (score IN (0, 1)),
   created_at   TEXT    NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now')),
   updated_at   TEXT    NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now')),
   PRIMARY KEY (fountain_id, device_id)

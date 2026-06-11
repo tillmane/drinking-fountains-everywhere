@@ -64,9 +64,10 @@ async function handleGetFountains(db, cors) {
     const { results: fountains } = await db
       .prepare(
         `SELECT f.id, f.lat, f.lon, f.name,
-                ROUND(AVG(r.score), 1) AS avg_rating,
-                COUNT(r.score)         AS rating_count,
-                MAX(r.updated_at)      AS last_rated_at
+                SUM(CASE WHEN r.score = 1 THEN 1 ELSE 0 END) AS thumbs_up,
+                SUM(CASE WHEN r.score = 0 THEN 1 ELSE 0 END) AS thumbs_down,
+                COUNT(r.score)                                AS rating_count,
+                MAX(r.updated_at)                             AS last_rated_at
          FROM fountains f
          LEFT JOIN ratings r ON r.fountain_id = f.id
          GROUP BY f.id`
@@ -117,6 +118,8 @@ async function handleGetFountains(db, cors) {
         const fa = attrMap[f.id] || {};
         return {
           ...f,
+          thumbs_up: f.thumbs_up || 0,
+          thumbs_down: f.thumbs_down || 0,
           sources: sourceMap[f.id] || [],
           reported_off: !!report,
           off_reports: report ? report.off_count : 0,
@@ -188,8 +191,8 @@ async function handlePostRating(db, fountainId, request, cors) {
     ) {
       return err("Invalid device_id", 400, cors);
     }
-    if (!Number.isInteger(score) || score < 1 || score > 5) {
-      return err("Score must be an integer from 1 to 5", 400, cors);
+    if (score !== 0 && score !== 1) {
+      return err("Score must be 0 (thumbs down) or 1 (thumbs up)", 400, cors);
     }
     devicePrefix = device_id.slice(0, 8);
 
@@ -206,9 +209,10 @@ async function handlePostRating(db, fountainId, request, cors) {
 
     const agg = await db
       .prepare(
-        `SELECT ROUND(AVG(score), 1) AS avg_rating,
-                COUNT(score)          AS rating_count,
-                MAX(updated_at)       AS last_rated_at
+        `SELECT SUM(CASE WHEN score = 1 THEN 1 ELSE 0 END) AS thumbs_up,
+                SUM(CASE WHEN score = 0 THEN 1 ELSE 0 END) AS thumbs_down,
+                COUNT(score)                                AS rating_count,
+                MAX(updated_at)                             AS last_rated_at
          FROM ratings WHERE fountain_id = ?`
       )
       .bind(fountainId)
@@ -219,7 +223,8 @@ async function handlePostRating(db, fountainId, request, cors) {
     await writeLog(db, "POST /rating", fountainId, devicePrefix, 200, ms);
     return json({
       fountain_id: fountainId,
-      avg_rating: agg.avg_rating,
+      thumbs_up: agg.thumbs_up || 0,
+      thumbs_down: agg.thumbs_down || 0,
       rating_count: agg.rating_count,
       last_rated_at: agg.last_rated_at,
       your_score: score,
