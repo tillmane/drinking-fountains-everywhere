@@ -114,16 +114,10 @@
   var X_ICON = '<line x1="9" y1="10" x2="19" y2="20" stroke="#fff" stroke-width="2.2" stroke-linecap="round" opacity="0.9"/>' +
     '<line x1="19" y1="10" x2="9" y2="20" stroke="#fff" stroke-width="2.2" stroke-linecap="round" opacity="0.9"/>';
 
-  var FACE_EYES = '<circle cx="10" cy="11" r="1.5" fill="#fff" opacity="0.9"/>' +
-    '<circle cx="18" cy="11" r="1.5" fill="#fff" opacity="0.9"/>';
-  var FACE_INNER = {
-    bigSmile: FACE_EYES + '<path d="M8 17 Q14 22 20 17" stroke="#fff" stroke-width="1.8" fill="none" stroke-linecap="round" opacity="0.9"/>',
-    smile:    FACE_EYES + '<path d="M9 17 Q14 20 19 17" stroke="#fff" stroke-width="1.8" fill="none" stroke-linecap="round" opacity="0.9"/>',
-    neutral:  FACE_EYES + '<line x1="9" y1="17" x2="19" y2="17" stroke="#fff" stroke-width="1.8" stroke-linecap="round" opacity="0.9"/>',
-    frown:    FACE_EYES + '<path d="M9 17 Q14 13 19 17" stroke="#fff" stroke-width="1.8" fill="none" stroke-linecap="round" opacity="0.9"/>',
-    bigFrown: FACE_EYES + '<path d="M8 18.5 Q14 12 20 18.5" stroke="#fff" stroke-width="1.8" fill="none" stroke-linecap="round" opacity="0.9"/>',
-    question: '<text x="14" y="19" text-anchor="middle" fill="#fff" font-size="15" font-weight="bold" font-family="Arial, sans-serif" opacity="0.9">?</text>',
-  };
+  var QUESTION_ICON = '<text x="14" y="19" text-anchor="middle" fill="#fff" font-size="15" font-weight="bold" font-family="Arial, sans-serif" opacity="0.9">?</text>';
+
+  var THUMB_UP = '<path d="M8 20h2V12H8v8zm10-9h-4V8c0-1.1-.9-2-2-2l-4 9v8h11.3c.8 0 1.5-.5 1.7-1.3l1.7-6c.3-1-.5-1.7-1.4-1.7z" fill="#fff" opacity="0.9"/>';
+  var THUMB_DOWN = '<path d="M20 4H8.7C7.9 4 7.2 4.5 7 5.3L5.3 11C5 12 5.8 12.7 6.7 12.7h4V16c0 1.1.9 2 2 2l4-9V4zm-2 0v8h-2V4h2z" fill="#fff" opacity="0.9"/>';
 
   function makeIcon(color, inner) {
     return L.divIcon({
@@ -158,20 +152,13 @@
     return layerOptions.ratingFilter === "rated" ? rated : !rated;
   }
 
-  function getFaceForFountain(sourceType, sourceId) {
-    if (!fountainIndexLoaded) return "question";
+  function getPinStateForFountain(sourceType, sourceId) {
+    if (!fountainIndexLoaded) return "unrated";
     var local = lookupFountain(sourceType, sourceId);
-    if (!local) return "question";
-    if (!local.last_rated_at) return "question";
-    var sixMonthsAgo = new Date();
-    sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
-    if (new Date(local.last_rated_at) < sixMonthsAgo) return "question";
-    var r = local.avg_rating;
-    if (r >= 4.5) return "bigSmile";
-    if (r >= 3.5) return "smile";
-    if (r >= 2.5) return "neutral";
-    if (r >= 1.5) return "frown";
-    return "bigFrown";
+    if (!local || !local.rating_count) return "unrated";
+    if (local.thumbs_up > local.thumbs_down) return "up";
+    if (local.thumbs_down > local.thumbs_up) return "down";
+    return "question";
   }
 
   function formatRelativeDate(isoString) {
@@ -188,22 +175,16 @@
     return month + " " + date.getDate();
   }
 
-  function buildStarsDisplay(avg) {
-    if (avg == null) return '<span class="stars-empty">No ratings</span>';
-    var html = "";
-    var rounded = Math.round(avg);
-    for (var i = 1; i <= 5; i++) {
-      html += '<span class="star-display ' + (i <= rounded ? "star-filled" : "star-empty") + '">★</span>';
-    }
-    return html;
+  function buildThumbsDisplay(thumbsUp, thumbsDown) {
+    if (!thumbsUp && !thumbsDown) return '<span class="thumbs-empty">No ratings yet</span>';
+    return '<span class="thumbs-up-count">👍 ' + (thumbsUp || 0) + '</span>' +
+           '<span class="thumbs-divider"> · </span>' +
+           '<span class="thumbs-down-count">👎 ' + (thumbsDown || 0) + '</span>';
   }
 
-  function buildRateStars(fountainId) {
-    var html = "";
-    for (var i = 1; i <= 5; i++) {
-      html += '<span class="rate-star" data-fountain-id="' + fountainId + '" data-score="' + i + '">★</span>';
-    }
-    return html;
+  function buildRateButtons(fountainId) {
+    return '<button class="rate-thumb rate-up" data-fountain-id="' + fountainId + '" data-score="1" title="Good water — reliable, clean, decent pressure">👍</button>' +
+           '<button class="rate-thumb rate-down" data-fountain-id="' + fountainId + '" data-score="0" title="Not worth the trip — off, dirty, or low pressure">👎</button>';
   }
 
   var TOOLTIPS = {
@@ -253,9 +234,7 @@
       '</div>';
     }
 
-    var avgDisplay = local.avg_rating ? local.avg_rating.toFixed(1) : "";
-    var starsHtml = buildStarsDisplay(local.avg_rating);
-    var countText = local.rating_count ? "(" + local.rating_count + ")" : "";
+    var thumbsHtml = buildThumbsDisplay(local.thumbs_up, local.thumbs_down);
     var lastRated = local.last_rated_at
       ? "Last rated " + formatRelativeDate(local.last_rated_at)
       : "";
@@ -271,15 +250,11 @@
 
     return '<div class="rating-section" data-fountain-id="' + local.id + '">' +
       reportHtml +
-      '<div class="rating-summary">' +
-        starsHtml +
-        ' <span class="rating-avg">' + avgDisplay + '</span>' +
-        ' <span class="rating-count">' + countText + '</span>' +
-      '</div>' +
+      '<div class="rating-summary">' + thumbsHtml + '</div>' +
       (lastRated ? '<div class="rating-last">' + lastRated + '</div>' : '') +
       '<div class="rating-yours">' +
         '<span class="rating-yours-label">Rate:</span>' +
-        buildRateStars(local.id) +
+        buildRateButtons(local.id) +
       '</div>' +
       '<div class="report-actions">' + reportBtnHtml + '</div>' +
     '</div>';
@@ -288,17 +263,17 @@
   function buildCityPopup(f) {
     var running = isCityRunning(f);
     var local = lookupFountain("city_gis", String(f.OBJECTID));
-    var details = "";
+    var detailsHtml = "";
     if (!running)
-      details += '<div><span class="detail-label">Reason Off:</span> ' + (f.REASON_OFF || "UNKNOWN") + '</div>';
-    details += '<div class="popup-source">Seattle City GIS</div>';
+      detailsHtml += '<div class="details"><div><span class="detail-label">Reason Off:</span> ' + (f.REASON_OFF || "UNKNOWN") + '</div></div>';
 
     return '<div class="fountain-popup">' +
       '<h3>' + (f.PARK || "Drinking Fountain") + '</h3>' +
       (running ? "" : '<span class="status off">Shut Off</span>') +
-      '<div class="details">' + details + '</div>' +
+      detailsHtml +
       buildRatingSection("city_gis", String(f.OBJECTID), !running) +
       buildAttributeSection(local, isYes(f.ACCESSIBLE_MODEL)) +
+      '<div class="popup-source">Seattle City GIS</div>' +
     '</div>';
   }
 
@@ -316,31 +291,36 @@
     }
     if (!title && tags.name && tags.name !== "Drinking Fountain") title = tags.name;
 
-    var details = "";
+    var detailsHtml = "";
     if (tags.check_date)
-      details += '<div><span class="detail-label">Last Verified:</span> ' + tags.check_date + '</div>';
-    details += '<div class="popup-source">OpenStreetMap</div>';
+      detailsHtml += '<div class="details"><div><span class="detail-label">Last Verified:</span> ' + tags.check_date + '</div></div>';
 
     return '<div class="fountain-popup">' +
       (title ? '<h3>' + title + '</h3>' : '') +
-      '<div class="details">' + details + '</div>' +
+      detailsHtml +
       buildRatingSection("osm", String(el.id), false) +
       buildAttributeSection(local, tags.wheelchair === "yes") +
+      '<div class="popup-source">OpenStreetMap</div>' +
     '</div>';
+  }
+
+  function pinStateToIcon(state, color) {
+    if (state === "up")     return makeIcon(color, THUMB_UP);
+    if (state === "down")   return makeIcon(color, THUMB_DOWN);
+    if (state === "unrated") return makeIcon("#9e9e9e", QUESTION_ICON);
+    return makeIcon(color, QUESTION_ICON);
   }
 
   function getCityIcon(f) {
     if (!isCityRunning(f)) return icons.cityOff;
     if (isReportedOff("city_gis", String(f.OBJECTID))) return icons.reportedOff;
-    var face = getFaceForFountain("city_gis", String(f.OBJECTID));
-    return makeIcon("#2563eb", FACE_INNER[face]);
+    return pinStateToIcon(getPinStateForFountain("city_gis", String(f.OBJECTID)), "#2563eb");
   }
 
   function getOsmIcon(el) {
     if (isReportedOff("osm", String(el.id))) return icons.reportedOff;
     var color = powerUserMode ? "#0891b2" : "#2563eb";
-    var face = getFaceForFountain("osm", String(el.id));
-    return makeIcon(color, FACE_INNER[face]);
+    return pinStateToIcon(getPinStateForFountain("osm", String(el.id)), color);
   }
 
   function renderCity() {
@@ -522,7 +502,8 @@
         }
         Object.keys(fountainIndex).forEach(function (key) {
           if (fountainIndex[key].id === fountainId) {
-            fountainIndex[key].avg_rating = data.avg_rating;
+            fountainIndex[key].thumbs_up = data.thumbs_up;
+            fountainIndex[key].thumbs_down = data.thumbs_down;
             fountainIndex[key].rating_count = data.rating_count;
             fountainIndex[key].last_rated_at = data.last_rated_at;
           }
@@ -540,54 +521,32 @@
 
     var summary = section.querySelector(".rating-summary");
     if (summary) {
-      var rounded = Math.round(data.avg_rating);
-      var starsHtml = "";
-      for (var i = 1; i <= 5; i++) {
-        starsHtml += '<span class="star-display ' + (i <= rounded ? "star-filled" : "star-empty") + '">★</span>';
-      }
-      summary.innerHTML = starsHtml +
-        ' <span class="rating-avg">' + data.avg_rating.toFixed(1) + '</span>' +
-        ' <span class="rating-count">(' + data.rating_count + ')</span>';
+      summary.innerHTML = buildThumbsDisplay(data.thumbs_up, data.thumbs_down);
     }
 
     var lastEl = section.querySelector(".rating-last");
     if (lastEl) {
       lastEl.textContent = "Last rated " + formatRelativeDate(data.last_rated_at);
-    } else {
+    } else if (summary) {
       var newLast = document.createElement("div");
       newLast.className = "rating-last";
       newLast.textContent = "Last rated " + formatRelativeDate(data.last_rated_at);
       summary.insertAdjacentElement("afterend", newLast);
     }
 
-    if (data.your_score) {
-      var rateStars = section.querySelectorAll(".rate-star");
-      rateStars.forEach(function (star) {
-        var s = parseInt(star.dataset.score);
-        star.classList.toggle("active", s <= data.your_score);
-      });
-    }
+    section.querySelectorAll(".rate-thumb").forEach(function (btn) {
+      btn.classList.toggle("active", parseInt(btn.dataset.score) === data.your_score);
+    });
   }
 
   map.on("popupopen", function (e) {
     var container = e.popup.getElement();
     if (!container) return;
-    var stars = container.querySelectorAll(".rate-star");
-    stars.forEach(function (star, idx) {
-      star.addEventListener("click", function () {
+    container.querySelectorAll(".rate-thumb").forEach(function (btn) {
+      btn.addEventListener("click", function () {
         var fId = parseInt(this.dataset.fountainId);
         var score = parseInt(this.dataset.score);
         submitRating(fId, score);
-      });
-      star.addEventListener("mouseenter", function () {
-        stars.forEach(function (s, i) {
-          s.classList.toggle("hover", i <= idx);
-        });
-      });
-      star.addEventListener("mouseleave", function () {
-        stars.forEach(function (s) {
-          s.classList.remove("hover");
-        });
       });
     });
     container.querySelectorAll(".report-btn").forEach(function (btn) {

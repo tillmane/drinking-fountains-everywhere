@@ -527,38 +527,24 @@ html, body {
 .rating-summary {
   display: flex;
   align-items: center;
-  gap: 2px;
+  gap: 4px;
   font-size: 14px;
 }
 
-.star-display {
-  font-size: 16px;
-  line-height: 1;
+.thumbs-up-count,
+.thumbs-down-count {
+  font-size: 13px;
+  color: #333;
 }
 
-.star-filled {
-  color: #f59e0b;
+.thumbs-divider {
+  color: #ccc;
 }
 
-.star-empty {
-  color: #ddd;
-}
-
-.stars-empty {
+.thumbs-empty {
   font-size: 12px;
   color: #aaa;
   font-style: italic;
-}
-
-.rating-avg {
-  font-weight: 600;
-  color: #333;
-  margin-left: 4px;
-}
-
-.rating-count {
-  color: #888;
-  font-size: 12px;
 }
 
 .rating-last {
@@ -571,7 +557,7 @@ html, body {
   margin-top: 8px;
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: 6px;
 }
 
 .rating-yours-label {
@@ -580,22 +566,26 @@ html, body {
   margin-right: 2px;
 }
 
-.rate-star {
+.rate-thumb {
   cursor: pointer;
-  font-size: 22px;
-  color: #ddd;
-  transition: color 0.1s;
+  font-size: 20px;
   line-height: 1;
   user-select: none;
+  border: none;
+  background: none;
+  padding: 2px 4px;
+  border-radius: 6px;
+  opacity: 0.5;
+  transition: opacity 0.15s, background 0.15s;
 }
 
-.rate-star:hover,
-.rate-star.hover {
-  color: #f59e0b;
+.rate-thumb:hover {
+  opacity: 1;
+  background: #f5f5f5;
 }
 
-.rate-star.active {
-  color: #f59e0b;
+.rate-thumb.active {
+  opacity: 1;
 }
 
 .rating-unavailable {
