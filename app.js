@@ -156,9 +156,8 @@
     if (!fountainIndexLoaded) return "unrated";
     var local = lookupFountain(sourceType, sourceId);
     if (!local || !local.rating_count) return "unrated";
-    if (local.thumbs_up > local.thumbs_down) return "up";
     if (local.thumbs_down > local.thumbs_up) return "down";
-    return "question";
+    return "up";
   }
 
   function formatRelativeDate(isoString) {
@@ -175,16 +174,13 @@
     return month + " " + date.getDate();
   }
 
-  function buildThumbsDisplay(thumbsUp, thumbsDown) {
-    if (!thumbsUp && !thumbsDown) return '<span class="thumbs-empty">No ratings yet</span>';
-    return '<span class="thumbs-up-count">👍 ' + (thumbsUp || 0) + '</span>' +
-           '<span class="thumbs-divider"> · </span>' +
-           '<span class="thumbs-down-count">👎 ' + (thumbsDown || 0) + '</span>';
-  }
-
-  function buildRateButtons(fountainId) {
-    return '<button class="rate-thumb rate-up" data-fountain-id="' + fountainId + '" data-score="1" title="Good water — reliable, clean, decent pressure">👍</button>' +
-           '<button class="rate-thumb rate-down" data-fountain-id="' + fountainId + '" data-score="0" title="Not worth the trip — off, dirty, or low pressure">👎</button>';
+  function buildReactionButtons(fountainId, thumbsUp, thumbsDown, yourScore) {
+    var upActive = yourScore === 1 ? " active" : "";
+    var downActive = yourScore === 0 ? " active" : "";
+    return '<div class="reactions">' +
+      '<button class="reaction-btn' + upActive + '" data-fountain-id="' + fountainId + '" data-score="1" title="Good water — reliable, clean, decent pressure">👍 <span class="reaction-count">' + (thumbsUp || 0) + '</span></button>' +
+      '<button class="reaction-btn' + downActive + '" data-fountain-id="' + fountainId + '" data-score="0" title="Not worth the trip — off, dirty, or low pressure">👎 <span class="reaction-count">' + (thumbsDown || 0) + '</span></button>' +
+    '</div>';
   }
 
   var TOOLTIPS = {
@@ -234,7 +230,6 @@
       '</div>';
     }
 
-    var thumbsHtml = buildThumbsDisplay(local.thumbs_up, local.thumbs_down);
     var lastRated = local.last_rated_at
       ? "Last rated " + formatRelativeDate(local.last_rated_at)
       : "";
@@ -250,12 +245,8 @@
 
     return '<div class="rating-section" data-fountain-id="' + local.id + '">' +
       reportHtml +
-      '<div class="rating-summary">' + thumbsHtml + '</div>' +
+      buildReactionButtons(local.id, local.thumbs_up, local.thumbs_down, null) +
       (lastRated ? '<div class="rating-last">' + lastRated + '</div>' : '') +
-      '<div class="rating-yours">' +
-        '<span class="rating-yours-label">Rate:</span>' +
-        buildRateButtons(local.id) +
-      '</div>' +
       '<div class="report-actions">' + reportBtnHtml + '</div>' +
     '</div>';
   }
@@ -525,34 +516,36 @@
     var section = document.querySelector('.rating-section[data-fountain-id="' + fountainId + '"]');
     if (!section) return;
 
-    var summary = section.querySelector(".rating-summary");
-    if (summary) {
-      summary.innerHTML = buildThumbsDisplay(data.thumbs_up, data.thumbs_down);
+    var reactions = section.querySelector(".reactions");
+    if (reactions) {
+      reactions.outerHTML = buildReactionButtons(fountainId, data.thumbs_up, data.thumbs_down, data.your_score);
+      // re-attach listeners after DOM replacement
+      section.querySelectorAll(".reaction-btn").forEach(function (btn) {
+        btn.addEventListener("click", function () {
+          submitRating(parseInt(this.dataset.fountainId), parseInt(this.dataset.score));
+        });
+      });
     }
 
     var lastEl = section.querySelector(".rating-last");
     if (lastEl) {
       lastEl.textContent = "Last rated " + formatRelativeDate(data.last_rated_at);
-    } else if (summary) {
+    } else {
       var newLast = document.createElement("div");
       newLast.className = "rating-last";
       newLast.textContent = "Last rated " + formatRelativeDate(data.last_rated_at);
-      summary.insertAdjacentElement("afterend", newLast);
+      section.querySelector(".reactions")
+        ? section.querySelector(".reactions").insertAdjacentElement("afterend", newLast)
+        : section.insertAdjacentElement("afterbegin", newLast);
     }
-
-    section.querySelectorAll(".rate-thumb").forEach(function (btn) {
-      btn.classList.toggle("active", parseInt(btn.dataset.score) === data.your_score);
-    });
   }
 
   map.on("popupopen", function (e) {
     var container = e.popup.getElement();
     if (!container) return;
-    container.querySelectorAll(".rate-thumb").forEach(function (btn) {
+    container.querySelectorAll(".reaction-btn").forEach(function (btn) {
       btn.addEventListener("click", function () {
-        var fId = parseInt(this.dataset.fountainId);
-        var score = parseInt(this.dataset.score);
-        submitRating(fId, score);
+        submitRating(parseInt(this.dataset.fountainId), parseInt(this.dataset.score));
       });
     });
     container.querySelectorAll(".report-btn").forEach(function (btn) {
