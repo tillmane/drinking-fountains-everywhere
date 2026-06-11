@@ -116,8 +116,8 @@
 
   var QUESTION_ICON = '<text x="14" y="19" text-anchor="middle" fill="#fff" font-size="15" font-weight="bold" font-family="Arial, sans-serif" opacity="0.9">?</text>';
 
-  var THUMB_UP = '<path d="M8 20h2V12H8v8zm10-9h-4V8c0-1.1-.9-2-2-2l-4 9v8h11.3c.8 0 1.5-.5 1.7-1.3l1.7-6c.3-1-.5-1.7-1.4-1.7z" fill="#fff" opacity="0.9"/>';
-  var THUMB_DOWN = '<path d="M20 4H8.7C7.9 4 7.2 4.5 7 5.3L5.3 11C5 12 5.8 12.7 6.7 12.7h4V16c0 1.1.9 2 2 2l4-9V4zm-2 0v8h-2V4h2z" fill="#fff" opacity="0.9"/>';
+  var THUMB_UP   = '<text x="14" y="20" text-anchor="middle" font-size="14" font-family="Apple Color Emoji, Segoe UI Emoji, sans-serif">👍</text>';
+  var THUMB_DOWN = '<text x="14" y="20" text-anchor="middle" font-size="14" font-family="Apple Color Emoji, Segoe UI Emoji, sans-serif">👎</text>';
 
   function makeIcon(color, inner) {
     return L.divIcon({
