@@ -32,7 +32,7 @@ CREATE TABLE IF NOT EXISTS status_reports (
 
 CREATE TABLE IF NOT EXISTS fountain_attributes (
   fountain_id    INTEGER NOT NULL REFERENCES fountains(id),
-  attribute      TEXT    NOT NULL CHECK (attribute IN ('bottle_filler', 'dog_bowl')),
+  attribute      TEXT    NOT NULL CHECK (attribute IN ('accessible', 'bottle_filler', 'dog_bowl')),
   value          INTEGER NOT NULL CHECK (value IN (0, 1)),
   device_id      TEXT    NOT NULL,
   updated_at     TEXT    NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now')),

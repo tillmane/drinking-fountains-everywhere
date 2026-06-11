@@ -41,6 +41,23 @@ async function writeLog(db, endpoint, fountainId, devicePrefix, status, ms) {
   }
 }
 
+async function handleAdminVerify(request, env, cors) {
+  let body;
+  try {
+    body = await request.json();
+  } catch {
+    return err("Invalid JSON", 400, cors);
+  }
+  const { pin } = body;
+  if (typeof pin !== "string" || pin.length === 0) {
+    return err("Invalid PIN", 401, cors);
+  }
+  if (!env.ADMIN_PIN || pin !== env.ADMIN_PIN) {
+    return err("Invalid PIN", 401, cors);
+  }
+  return json({ ok: true }, 200, cors);
+}
+
 async function handleGetFountains(db, cors) {
   const t0 = Date.now();
   try {
@@ -104,6 +121,7 @@ async function handleGetFountains(db, cors) {
           reported_off: !!report,
           off_reports: report ? report.off_count : 0,
           last_off_report_at: report ? report.last_off_at : null,
+          user_accessible: fa.accessible || false,
           user_bottle_filler: fa.bottle_filler || false,
           user_dog_bowl: fa.dog_bowl || false,
         };
@@ -315,8 +333,8 @@ async function handlePostAttributes(db, fountainId, request, cors) {
     ) {
       return err("Invalid device_id", 400, cors);
     }
-    if (attribute !== "bottle_filler" && attribute !== "dog_bowl") {
-      return err("Attribute must be 'bottle_filler' or 'dog_bowl'", 400, cors);
+    if (attribute !== "accessible" && attribute !== "bottle_filler" && attribute !== "dog_bowl") {
+      return err("Attribute must be 'accessible', 'bottle_filler', or 'dog_bowl'", 400, cors);
     }
     if (value !== true && value !== false) {
       return err("Value must be true or false", 400, cors);
@@ -340,8 +358,9 @@ async function handlePostAttributes(db, fountainId, request, cors) {
       .bind(fountainId)
       .all();
 
-    const out = { fountain_id: fountainId, user_bottle_filler: false, user_dog_bowl: false };
+    const out = { fountain_id: fountainId, user_accessible: false, user_bottle_filler: false, user_dog_bowl: false };
     for (const r of results) {
+      if (r.attribute === "accessible") out.user_accessible = r.value === 1;
       if (r.attribute === "bottle_filler") out.user_bottle_filler = r.value === 1;
       if (r.attribute === "dog_bowl") out.user_dog_bowl = r.value === 1;
     }
@@ -367,6 +386,10 @@ export default {
     }
 
     const url = new URL(request.url);
+
+    if (url.pathname === "/admin/verify" && request.method === "POST") {
+      return handleAdminVerify(request, env, cors);
+    }
 
     if (url.pathname === "/fountains" && request.method === "GET") {
       return handleGetFountains(env.DB, cors);

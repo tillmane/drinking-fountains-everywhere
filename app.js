@@ -56,6 +56,7 @@
   var OSM_MATCH_METERS = 30;
   var layerOptions = {
     cityUniqueOnly: false,
+    ratingFilter: null, // null | "rated" | "unrated"
   };
 
   function cityHasOsmMatch(f) {
@@ -138,6 +139,17 @@
     return fountainIndex[sourceType + ":" + sourceId] || null;
   }
 
+  function isRated(sourceType, sourceId) {
+    var local = lookupFountain(sourceType, sourceId);
+    return local && local.rating_count > 0;
+  }
+
+  function passesRatingFilter(sourceType, sourceId) {
+    if (!layerOptions.ratingFilter) return true;
+    var rated = isRated(sourceType, sourceId);
+    return layerOptions.ratingFilter === "rated" ? rated : !rated;
+  }
+
   function getFaceForFountain(sourceType, sourceId) {
     if (!fountainIndexLoaded) return "question";
     var local = lookupFountain(sourceType, sourceId);
@@ -186,12 +198,26 @@
     return html;
   }
 
-  function buildPowerUserSection(local) {
-    if (!powerUserMode || !local) return "";
+  var TOOLTIPS = {
+    accessible: "Features a fountain accessible to wheelchair users",
+    dog_bowl:   "Features a near-ground fountain or basin for pet access",
+  };
+
+  function tooltipIcon(key) {
+    return '<button class="attr-tooltip-btn" data-tooltip="' + TOOLTIPS[key] + '" aria-label="More info" type="button">?</button>';
+  }
+
+  function buildAttributeSection(local, sourceAccessible) {
+    if (!local) return "";
+    var accessibleChecked = (sourceAccessible || local.user_accessible) ? " checked" : "";
     var bottleChecked = local.user_bottle_filler ? " checked" : "";
     var dogChecked = local.user_dog_bowl ? " checked" : "";
-    return '<div class="power-user-section">' +
-      '<div class="power-user-section-header">Edit Attributes</div>' +
+    return '<div class="attr-section">' +
+      '<div class="attr-checkbox-row">' +
+        '<input type="checkbox" id="attr-accessible-' + local.id + '" class="attr-checkbox" data-fountain-id="' + local.id + '" data-attribute="accessible"' + accessibleChecked + '>' +
+        '<label for="attr-accessible-' + local.id + '">Accessible</label>' +
+        tooltipIcon("accessible") +
+      '</div>' +
       '<div class="attr-checkbox-row">' +
         '<input type="checkbox" id="attr-bottle-' + local.id + '" class="attr-checkbox" data-fountain-id="' + local.id + '" data-attribute="bottle_filler"' + bottleChecked + '>' +
         '<label for="attr-bottle-' + local.id + '">Bottle Filler</label>' +
@@ -199,6 +225,7 @@
       '<div class="attr-checkbox-row">' +
         '<input type="checkbox" id="attr-dog-' + local.id + '" class="attr-checkbox" data-fountain-id="' + local.id + '" data-attribute="dog_bowl"' + dogChecked + '>' +
         '<label for="attr-dog-' + local.id + '">Dog Bowl</label>' +
+        tooltipIcon("dog_bowl") +
       '</div>' +
     '</div>';
   }
@@ -215,7 +242,6 @@
     if (sourceOff) {
       return '<div class="rating-section" data-fountain-id="' + local.id + '">' +
         '<p class="rating-unavailable">Ratings disabled — fountain shut off by city</p>' +
-        buildPowerUserSection(local) +
       '</div>';
     }
 
@@ -248,7 +274,6 @@
         buildRateStars(local.id) +
       '</div>' +
       '<div class="report-actions">' + reportBtnHtml + '</div>' +
-      buildPowerUserSection(local) +
     '</div>';
   }
 
@@ -256,12 +281,6 @@
     var running = isCityRunning(f);
     var local = lookupFountain("city_gis", String(f.OBJECTID));
     var details = "";
-    if (isYes(f.ACCESSIBLE_MODEL))
-      details += '<div><span class="detail-label">Accessible:</span> Yes</div>';
-    if (isYes(f.BOTTLE_FILLER) || (local && local.user_bottle_filler))
-      details += '<div><span class="detail-label">Bottle Filler:</span> Yes</div>';
-    if (isYes(f.DOG_BOWL) || (local && local.user_dog_bowl))
-      details += '<div><span class="detail-label">Dog Bowl:</span> Yes</div>';
     if (!running)
       details += '<div><span class="detail-label">Reason Off:</span> ' + (f.REASON_OFF || "UNKNOWN") + '</div>';
     details += '<div class="popup-source">Seattle City GIS</div>';
@@ -271,6 +290,7 @@
       (running ? "" : '<span class="status off">Shut Off</span>') +
       '<div class="details">' + details + '</div>' +
       buildRatingSection("city_gis", String(f.OBJECTID), !running) +
+      buildAttributeSection(local, isYes(f.ACCESSIBLE_MODEL)) +
     '</div>';
   }
 
@@ -289,12 +309,6 @@
     if (!title && tags.name && tags.name !== "Drinking Fountain") title = tags.name;
 
     var details = "";
-    if (tags.wheelchair === "yes")
-      details += '<div><span class="detail-label">Accessible:</span> Yes</div>';
-    if (tags.bottle === "yes" || (local && local.user_bottle_filler))
-      details += '<div><span class="detail-label">Bottle Filler:</span> Yes</div>';
-    if (tags.dog === "yes" || (local && local.user_dog_bowl))
-      details += '<div><span class="detail-label">Dog Bowl:</span> Yes</div>';
     if (tags.check_date)
       details += '<div><span class="detail-label">Last Verified:</span> ' + tags.check_date + '</div>';
     details += '<div class="popup-source">OpenStreetMap</div>';
@@ -303,6 +317,7 @@
       (title ? '<h3>' + title + '</h3>' : '') +
       '<div class="details">' + details + '</div>' +
       buildRatingSection("osm", String(el.id), false) +
+      buildAttributeSection(local, tags.wheelchair === "yes") +
     '</div>';
   }
 
@@ -328,6 +343,7 @@
       if (activeFilters.bottle && !fountainHasBottle("city_gis", String(f.OBJECTID), f)) return;
       if (activeFilters.dog && !fountainHasDog("city_gis", String(f.OBJECTID), f)) return;
       if (layerOptions.cityUniqueOnly && cityHasOsmMatch(f)) return;
+      if (!passesRatingFilter("city_gis", String(f.OBJECTID))) return;
 
       L.marker([f.LATITUDE, f.LONGITUDE], { icon: getCityIcon(f) })
         .bindPopup(function () { return buildCityPopup(f); })
@@ -338,9 +354,15 @@
   function renderOsm() {
     sources.osm.layerGroup.clearLayers();
     sources.osm.data.forEach(function (el) {
-      if (activeFilters.accessible && el.tags.wheelchair !== "yes") return;
+      var tags = el.tags || {};
+      if (!powerUserMode) {
+        var local = lookupFountain("osm", String(el.id));
+        if (local && (local.sources || []).some(function (s) { return s.source_type === "city_gis"; })) return;
+      }
+      if (activeFilters.accessible && tags.wheelchair !== "yes") return;
       if (activeFilters.bottle && !fountainHasBottle("osm", String(el.id), el)) return;
       if (activeFilters.dog && !fountainHasDog("osm", String(el.id), el)) return;
+      if (!passesRatingFilter("osm", String(el.id))) return;
 
       L.marker([el.lat, el.lon], { icon: getOsmIcon(el) })
         .bindPopup(function () { return buildOsmPopup(el); })
@@ -379,6 +401,7 @@
           });
         });
         fountainIndexLoaded = true;
+        updateRatingCounts();
         renderAll();
       })
       .catch(function (err) {
@@ -437,6 +460,7 @@
         }
         Object.keys(fountainIndex).forEach(function (key) {
           if (fountainIndex[key].id === fountainId) {
+            fountainIndex[key].user_accessible = data.user_accessible;
             fountainIndex[key].user_bottle_filler = data.user_bottle_filler;
             fountainIndex[key].user_dog_bowl = data.user_dog_bowl;
           }
@@ -565,11 +589,26 @@
         submitReport(fId, status);
       });
     });
-    container.querySelectorAll(".attr-checkbox").forEach(function (cb) {
+    container.querySelectorAll(".attr-checkbox:not([disabled])").forEach(function (cb) {
       cb.addEventListener("change", function () {
         var fId = parseInt(this.dataset.fountainId);
         var attr = this.dataset.attribute;
         submitAttribute(fId, attr, this.checked);
+      });
+    });
+    container.querySelectorAll(".attr-tooltip-btn").forEach(function (btn) {
+      var tip = null;
+      btn.addEventListener("click", function (e) {
+        e.stopPropagation();
+        if (tip) { tip.remove(); tip = null; return; }
+        tip = document.createElement("div");
+        tip.className = "attr-tooltip";
+        tip.textContent = btn.dataset.tooltip;
+        btn.insertAdjacentElement("afterend", tip);
+        document.addEventListener("click", function dismiss() {
+          if (tip) { tip.remove(); tip = null; }
+          document.removeEventListener("click", dismiss);
+        });
       });
     });
   });
@@ -693,11 +732,36 @@
 
   locateBtn.addEventListener("click", locateUser);
 
+  var filterBtn = document.getElementById("filter-btn");
+  var filterPanel = document.getElementById("filter-panel");
+
+  filterBtn.addEventListener("click", function (e) {
+    e.stopPropagation();
+    filterPanel.classList.toggle("collapsed");
+  });
+
+  document.addEventListener("click", function (e) {
+    if (!filterPanel.classList.contains("collapsed") &&
+        !document.getElementById("filter-dropdown").contains(e.target)) {
+      filterPanel.classList.add("collapsed");
+    }
+  });
+
+  var filterCount = document.getElementById("filter-count");
+
+  function updateFilterBtn() {
+    var count = Object.values(activeFilters).filter(Boolean).length;
+    filterBtn.classList.toggle("has-active", count > 0);
+    filterCount.textContent = count;
+    filterCount.classList.toggle("hidden", count === 0);
+  }
+
   document.querySelectorAll(".filter-toggle").forEach(function (btn) {
     btn.addEventListener("click", function () {
       var filter = btn.dataset.filter;
       activeFilters[filter] = !activeFilters[filter];
       btn.classList.toggle("active");
+      updateFilterBtn();
       renderAll();
     });
   });
@@ -705,13 +769,105 @@
   var powerUserBtn = document.getElementById("power-user-btn");
   var layerControl = document.getElementById("layer-control");
   var legendAdminRow = document.querySelector(".legend-admin-row");
+  var pinModal = document.getElementById("pin-modal");
+  var pinInput = document.getElementById("pin-input");
+  var pinError = document.getElementById("pin-error");
+  var pinSubmitBtn = document.getElementById("pin-submit-btn");
+  var pinCancelBtn = document.getElementById("pin-cancel-btn");
+
+  var ADMIN_SESSION_KEY = "admin_unlocked";
+
+  function isAdminUnlocked() {
+    return sessionStorage.getItem(ADMIN_SESSION_KEY) === "1";
+  }
+
+  function activateAdminMode() {
+    powerUserMode = true;
+    powerUserBtn.classList.add("active");
+    layerControl.classList.remove("hidden");
+    legendAdminRow.classList.remove("hidden");
+    updateRatingCounts();
+    renderAll();
+  }
+
+  function deactivateAdminMode() {
+    powerUserMode = false;
+    powerUserBtn.classList.remove("active");
+    layerControl.classList.add("hidden");
+    legendAdminRow.classList.add("hidden");
+    if (layerOptions.ratingFilter) {
+      layerOptions.ratingFilter = null;
+      ratedBtn.classList.remove("active");
+      unratedBtn.classList.remove("active");
+    }
+    renderAll();
+  }
+
+  function openPinModal() {
+    pinInput.value = "";
+    pinError.classList.add("hidden");
+    pinModal.classList.remove("hidden");
+    pinInput.focus();
+  }
+
+  function closePinModal() {
+    pinModal.classList.add("hidden");
+    pinInput.value = "";
+    pinError.classList.add("hidden");
+  }
+
+  function submitPin() {
+    var pin = pinInput.value.trim();
+    if (!pin) return;
+    pinSubmitBtn.disabled = true;
+    pinSubmitBtn.textContent = "Checking…";
+    fetch(API_BASE + "/admin/verify", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ pin: pin }),
+    })
+      .then(function (res) { return res.json().then(function (d) { return { ok: res.ok, data: d }; }); })
+      .then(function (r) {
+        pinSubmitBtn.disabled = false;
+        pinSubmitBtn.textContent = "Unlock";
+        if (r.ok) {
+          sessionStorage.setItem(ADMIN_SESSION_KEY, "1");
+          closePinModal();
+          activateAdminMode();
+        } else {
+          pinError.classList.remove("hidden");
+          pinInput.value = "";
+          pinInput.focus();
+        }
+      })
+      .catch(function () {
+        pinSubmitBtn.disabled = false;
+        pinSubmitBtn.textContent = "Unlock";
+        pinError.textContent = "Request failed. Try again.";
+        pinError.classList.remove("hidden");
+      });
+  }
 
   powerUserBtn.addEventListener("click", function () {
-    powerUserMode = !powerUserMode;
-    powerUserBtn.classList.toggle("active");
-    layerControl.classList.toggle("hidden", !powerUserMode);
-    legendAdminRow.classList.toggle("hidden", !powerUserMode);
-    renderAll();
+    if (powerUserMode) {
+      deactivateAdminMode();
+      return;
+    }
+    if (isAdminUnlocked()) {
+      activateAdminMode();
+      return;
+    }
+    openPinModal();
+  });
+
+  pinSubmitBtn.addEventListener("click", submitPin);
+  pinCancelBtn.addEventListener("click", closePinModal);
+  pinInput.addEventListener("keydown", function (e) {
+    if (e.key === "Enter") submitPin();
+    if (e.key === "Escape") closePinModal();
+  });
+  pinModal.addEventListener("click", function (e) {
+    if (e.target === pinModal) closePinModal();
   });
 
   var legendEl = document.getElementById("legend");
@@ -724,6 +880,39 @@
   });
 
   var cityUniqueBtn = document.querySelector('.layer-suboption[data-option="city-unique"]');
+  var ratedBtn = document.querySelector('.layer-suboption[data-option="rated"]');
+  var unratedBtn = document.querySelector('.layer-suboption[data-option="unrated"]');
+  var countRatedEl = document.getElementById("count-rated");
+  var countUnratedEl = document.getElementById("count-unrated");
+
+  function updateRatingCounts() {
+    if (!fountainIndexLoaded) return;
+    var seen = {};
+    var rated = 0, unrated = 0;
+    Object.values(fountainIndex).forEach(function (f) {
+      if (seen[f.id]) return;
+      seen[f.id] = true;
+      if (f.rating_count > 0) rated++; else unrated++;
+    });
+    countRatedEl.textContent = rated;
+    countUnratedEl.textContent = unrated;
+  }
+
+  function setRatingFilter(option) {
+    if (layerOptions.ratingFilter === option) {
+      layerOptions.ratingFilter = null;
+      ratedBtn.classList.remove("active");
+      unratedBtn.classList.remove("active");
+    } else {
+      layerOptions.ratingFilter = option;
+      ratedBtn.classList.toggle("active", option === "rated");
+      unratedBtn.classList.toggle("active", option === "unrated");
+    }
+    renderAll();
+  }
+
+  ratedBtn.addEventListener("click", function () { setRatingFilter("rated"); });
+  unratedBtn.addEventListener("click", function () { setRatingFilter("unrated"); });
 
   document.querySelectorAll(".layer-toggle").forEach(function (btn) {
     btn.addEventListener("click", function () {
@@ -751,6 +940,12 @@
   });
 
   map.on("moveend", updateCount);
+
+  map.on("click", function () {
+    filterPanel.classList.add("collapsed");
+    legendBody.classList.add("collapsed");
+    legendToggle.textContent = "▸";
+  });
 
   fetchCity();
   fetchOsm();
