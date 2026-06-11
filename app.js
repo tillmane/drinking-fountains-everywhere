@@ -26,6 +26,7 @@
   var fountainIndex = {};
   var fountainIndexLoaded = false;
   var powerUserMode = false;
+  var myRatings = {}; // fountainId -> 0 | 1 | null
 
   var map = L.map("map", {
     center: SEATTLE_CENTER,
@@ -245,7 +246,7 @@
 
     return '<div class="rating-section" data-fountain-id="' + local.id + '">' +
       reportHtml +
-      buildReactionButtons(local.id, local.thumbs_up, local.thumbs_down, null) +
+      buildReactionButtons(local.id, local.thumbs_up, local.thumbs_down, myRatings[local.id] !== undefined ? myRatings[local.id] : null) +
       (lastRated ? '<div class="rating-last">' + lastRated + '</div>' : '') +
       '<div class="report-actions">' + reportBtnHtml + '</div>' +
     '</div>';
@@ -258,12 +259,13 @@
     if (!running)
       detailsHtml += '<div class="details"><div><span class="detail-label">Reason Off:</span> ' + (f.REASON_OFF || "UNKNOWN") + '</div></div>';
 
+    var nameHtml = f.PARK ? '<div class="popup-name">' + f.PARK + '</div>' : '';
     return '<div class="fountain-popup">' +
-      '<h3>' + (f.PARK || "Drinking Fountain") + '</h3>' +
       (running ? "" : '<span class="status off">Shut Off</span>') +
       detailsHtml +
       buildRatingSection("city_gis", String(f.OBJECTID), !running) +
       buildAttributeSection(local, isYes(f.ACCESSIBLE_MODEL)) +
+      nameHtml +
       '<div class="popup-source">Seattle City GIS</div>' +
     '</div>';
   }
@@ -286,11 +288,12 @@
     if (tags.check_date)
       detailsHtml += '<div class="details"><div><span class="detail-label">Last Verified:</span> ' + tags.check_date + '</div></div>';
 
+    var nameHtml = title ? '<div class="popup-name">' + title + '</div>' : '';
     return '<div class="fountain-popup">' +
-      (title ? '<h3>' + title + '</h3>' : '') +
       detailsHtml +
       buildRatingSection("osm", String(el.id), false) +
       buildAttributeSection(local, tags.wheelchair === "yes") +
+      nameHtml +
       '<div class="popup-source">OpenStreetMap</div>' +
     '</div>';
   }
@@ -330,9 +333,9 @@
       if (layerOptions.cityUniqueOnly && cityHasOsmMatch(f)) return;
       if (!passesRatingFilter("city_gis", String(f.OBJECTID))) return;
 
-      L.marker([f.LATITUDE, f.LONGITUDE], { icon: getCityIcon(f), zIndexOffset: getPinZIndex("city_gis", String(f.OBJECTID)) })
-        .bindPopup(function () { return buildCityPopup(f); })
-        .addTo(sources.city.layerGroup);
+      var cm = L.marker([f.LATITUDE, f.LONGITUDE], { icon: getCityIcon(f), zIndexOffset: getPinZIndex("city_gis", String(f.OBJECTID)) });
+      cm._fountainData = f;
+      cm.bindPopup(function () { return buildCityPopup(f); }).addTo(sources.city.layerGroup);
     });
   }
 
@@ -349,9 +352,9 @@
       if (activeFilters.dog && !fountainHasDog("osm", String(el.id), el)) return;
       if (!passesRatingFilter("osm", String(el.id))) return;
 
-      L.marker([el.lat, el.lon], { icon: getOsmIcon(el), zIndexOffset: getPinZIndex("osm", String(el.id)) })
-        .bindPopup(function () { return buildOsmPopup(el); })
-        .addTo(sources.osm.layerGroup);
+      var om = L.marker([el.lat, el.lon], { icon: getOsmIcon(el), zIndexOffset: getPinZIndex("osm", String(el.id)) });
+      om._fountainData = el;
+      om.bindPopup(function () { return buildOsmPopup(el); }).addTo(sources.osm.layerGroup);
     });
   }
 
@@ -359,6 +362,25 @@
     renderCity();
     renderOsm();
     updateCount();
+  }
+
+  function updateMarkerForFountain(fountainId) {
+    sources.city.layerGroup.eachLayer(function (marker) {
+      var f = marker._fountainData;
+      if (!f) return;
+      var local = lookupFountain("city_gis", String(f.OBJECTID));
+      if (!local || local.id !== fountainId) return;
+      marker.setIcon(getCityIcon(f));
+      marker.setZIndexOffset(getPinZIndex("city_gis", String(f.OBJECTID)));
+    });
+    sources.osm.layerGroup.eachLayer(function (marker) {
+      var el = marker._fountainData;
+      if (!el) return;
+      var local = lookupFountain("osm", String(el.id));
+      if (!local || local.id !== fountainId) return;
+      marker.setIcon(getOsmIcon(el));
+      marker.setZIndexOffset(getPinZIndex("osm", String(el.id)));
+    });
   }
 
   function updateCount() {
@@ -486,8 +508,10 @@
 
   function submitRating(fountainId, score) {
     if (!API_BASE) return;
+    var isUnrating = myRatings[fountainId] === score;
+    var method = isUnrating ? "DELETE" : "POST";
     fetch(API_BASE + "/fountains/" + fountainId + "/rating", {
-      method: "POST",
+      method: method,
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ device_id: deviceId, score: score }),
     })
@@ -497,6 +521,7 @@
           showError("Rating failed: " + data.error);
           return;
         }
+        myRatings[fountainId] = isUnrating ? null : score;
         Object.keys(fountainIndex).forEach(function (key) {
           if (fountainIndex[key].id === fountainId) {
             fountainIndex[key].thumbs_up = data.thumbs_up;
@@ -506,6 +531,7 @@
           }
         });
         updateOpenPopupRating(fountainId, data);
+        updateMarkerForFountain(fountainId);
       })
       .catch(function () {
         showError("Failed to submit rating. Please try again.");

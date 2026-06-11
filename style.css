@@ -474,12 +474,6 @@ html, body {
   min-width: 180px;
 }
 
-.fountain-popup h3 {
-  margin: 0 0 6px;
-  font-size: 15px;
-  color: #1a1a1a;
-}
-
 .fountain-popup .status {
   display: inline-block;
   padding: 2px 8px;
@@ -510,8 +504,15 @@ html, body {
   color: #333;
 }
 
-.popup-source {
+.popup-name {
   margin-top: 6px;
+  font-size: 11px;
+  color: #1a1a1a;
+  font-weight: 500;
+}
+
+.popup-source {
+  margin-top: 2px;
   font-size: 11px;
   color: #aaa;
 }

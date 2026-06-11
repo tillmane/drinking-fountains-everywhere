@@ -3,7 +3,7 @@ function corsHeaders(allowedOrigin, requestOrigin) {
   const origin = allowed.includes(requestOrigin) ? requestOrigin : allowedOrigin;
   return {
     "Access-Control-Allow-Origin": origin,
-    "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+    "Access-Control-Allow-Methods": "GET, POST, DELETE, OPTIONS",
     "Access-Control-Allow-Headers": "Content-Type",
   };
 }
@@ -237,6 +237,59 @@ async function handlePostRating(db, fountainId, request, cors) {
   }
 }
 
+async function handleDeleteRating(db, fountainId, request, cors) {
+  const t0 = Date.now();
+  let devicePrefix = "unknown";
+  try {
+    const fountain = await db
+      .prepare("SELECT id FROM fountains WHERE id = ?")
+      .bind(fountainId)
+      .first();
+    if (!fountain) return err("Fountain not found", 404, cors);
+
+    let body;
+    try { body = await request.json(); } catch { return err("Invalid JSON", 400, cors); }
+    const { device_id } = body;
+    if (typeof device_id !== "string" || device_id.length < 1 || device_id.length > 64) {
+      return err("Invalid device_id", 400, cors);
+    }
+    devicePrefix = device_id.slice(0, 8);
+
+    await db
+      .prepare("DELETE FROM ratings WHERE fountain_id = ? AND device_id = ?")
+      .bind(fountainId, device_id)
+      .run();
+
+    const agg = await db
+      .prepare(
+        `SELECT SUM(CASE WHEN score = 1 THEN 1 ELSE 0 END) AS thumbs_up,
+                SUM(CASE WHEN score = 0 THEN 1 ELSE 0 END) AS thumbs_down,
+                COUNT(score)                                AS rating_count,
+                MAX(updated_at)                             AS last_rated_at
+         FROM ratings WHERE fountain_id = ?`
+      )
+      .bind(fountainId)
+      .first();
+
+    const ms = Date.now() - t0;
+    log("info", "DELETE /fountains/:id/rating", { fountainId, devicePrefix, status: 200, ms });
+    await writeLog(db, "DELETE /rating", fountainId, devicePrefix, 200, ms);
+    return json({
+      fountain_id: fountainId,
+      thumbs_up: agg.thumbs_up || 0,
+      thumbs_down: agg.thumbs_down || 0,
+      rating_count: agg.rating_count || 0,
+      last_rated_at: agg.last_rated_at,
+      your_score: null,
+    }, 200, cors);
+  } catch (e) {
+    const ms = Date.now() - t0;
+    log("error", "DELETE /fountains/:id/rating", { fountainId, devicePrefix, error: e.message, ms });
+    await writeLog(db, "DELETE /rating", fountainId, devicePrefix, 500, ms);
+    return err("Internal server error", 500, cors);
+  }
+}
+
 async function handlePostReport(db, fountainId, request, cors) {
   const t0 = Date.now();
   let devicePrefix = "unknown";
@@ -408,6 +461,9 @@ export default {
     const ratingMatch = url.pathname.match(/^\/fountains\/(\d+)\/rating$/);
     if (ratingMatch && request.method === "POST") {
       return handlePostRating(env.DB, parseInt(ratingMatch[1]), request, cors);
+    }
+    if (ratingMatch && request.method === "DELETE") {
+      return handleDeleteRating(env.DB, parseInt(ratingMatch[1]), request, cors);
     }
 
     const reportMatch = url.pathname.match(/^\/fountains\/(\d+)\/report$/);
