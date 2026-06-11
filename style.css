@@ -134,7 +134,7 @@ html, body {
 }
 
 #filter-count.hidden {
-  display: none;
+  visibility: hidden;
 }
 
 #filter-panel {
