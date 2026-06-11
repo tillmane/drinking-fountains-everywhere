@@ -304,6 +304,12 @@
     '</div>';
   }
 
+  function getPinZIndex(sourceType, sourceId) {
+    var state = getPinStateForFountain(sourceType, sourceId);
+    if (state === "unrated" && !isReportedOff(sourceType, sourceId)) return 0;
+    return 1000;
+  }
+
   function pinStateToIcon(state, color) {
     if (state === "up")     return makeIcon(color, THUMB_UP);
     if (state === "down")   return makeIcon(color, THUMB_DOWN);
@@ -333,7 +339,7 @@
       if (layerOptions.cityUniqueOnly && cityHasOsmMatch(f)) return;
       if (!passesRatingFilter("city_gis", String(f.OBJECTID))) return;
 
-      L.marker([f.LATITUDE, f.LONGITUDE], { icon: getCityIcon(f) })
+      L.marker([f.LATITUDE, f.LONGITUDE], { icon: getCityIcon(f), zIndexOffset: getPinZIndex("city_gis", String(f.OBJECTID)) })
         .bindPopup(function () { return buildCityPopup(f); })
         .addTo(sources.city.layerGroup);
     });
@@ -352,7 +358,7 @@
       if (activeFilters.dog && !fountainHasDog("osm", String(el.id), el)) return;
       if (!passesRatingFilter("osm", String(el.id))) return;
 
-      L.marker([el.lat, el.lon], { icon: getOsmIcon(el) })
+      L.marker([el.lat, el.lon], { icon: getOsmIcon(el), zIndexOffset: getPinZIndex("osm", String(el.id)) })
         .bindPopup(function () { return buildOsmPopup(el); })
         .addTo(sources.osm.layerGroup);
     });
