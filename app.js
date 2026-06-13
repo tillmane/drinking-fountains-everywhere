@@ -179,8 +179,14 @@
     var upActive = yourScore === 1 ? " active" : "";
     var downActive = yourScore === 0 ? " active" : "";
     return '<div class="reactions">' +
-      '<button class="reaction-btn' + upActive + '" data-fountain-id="' + fountainId + '" data-score="1" title="Good water — reliable, clean, decent pressure">👍 <span class="reaction-count">' + (thumbsUp || 0) + '</span></button>' +
-      '<button class="reaction-btn' + downActive + '" data-fountain-id="' + fountainId + '" data-score="0" title="Not worth the trip — off, dirty, or low pressure">👎 <span class="reaction-count">' + (thumbsDown || 0) + '</span></button>' +
+      '<div class="reaction-col">' +
+        '<button class="reaction-btn' + upActive + '" data-fountain-id="' + fountainId + '" data-score="1">👍 <span class="reaction-count">' + (thumbsUp || 0) + '</span></button>' +
+        '<div class="reaction-label">Good water — reliable, clean, decent pressure</div>' +
+      '</div>' +
+      '<div class="reaction-col">' +
+        '<button class="reaction-btn' + downActive + '" data-fountain-id="' + fountainId + '" data-score="0">👎 <span class="reaction-count">' + (thumbsDown || 0) + '</span></button>' +
+        '<div class="reaction-label">Not worth the detour — very low pressure, extremely dirty, etc</div>' +
+      '</div>' +
     '</div>';
   }
 
@@ -580,7 +586,10 @@
       btn.addEventListener("click", function () {
         var fId = parseInt(this.dataset.fountainId);
         var status = this.dataset.status;
-        if (status === "off" && !confirm("Report this fountain as turned off?")) return;
+        if (status === "off") {
+          showConfirm("Report this fountain as turned off?", function () { submitReport(fId, status); });
+          return;
+        }
         submitReport(fId, status);
       });
     });
@@ -764,6 +773,33 @@
   var powerUserBtn = document.getElementById("power-user-btn");
   var layerControl = document.getElementById("layer-control");
   var legendAdminRow = document.querySelector(".legend-admin-row");
+  var confirmModal = document.getElementById("confirm-modal");
+  var confirmMessage = document.getElementById("confirm-message");
+  var confirmOkBtn = document.getElementById("confirm-ok-btn");
+  var confirmCancelBtn = document.getElementById("confirm-cancel-btn");
+  var confirmCallback = null;
+
+  function showConfirm(message, onConfirm) {
+    confirmMessage.textContent = message;
+    confirmCallback = onConfirm;
+    confirmModal.classList.remove("hidden");
+  }
+
+  function closeConfirm() {
+    confirmModal.classList.add("hidden");
+    confirmCallback = null;
+  }
+
+  confirmOkBtn.addEventListener("click", function () {
+    var cb = confirmCallback;
+    closeConfirm();
+    if (cb) cb();
+  });
+  confirmCancelBtn.addEventListener("click", closeConfirm);
+  confirmModal.addEventListener("click", function (e) {
+    if (e.target === confirmModal) closeConfirm();
+  });
+
   var pinModal = document.getElementById("pin-modal");
   var pinInput = document.getElementById("pin-input");
   var pinError = document.getElementById("pin-error");
