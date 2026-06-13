@@ -179,11 +179,11 @@
     var upActive = yourScore === 1 ? " active" : "";
     var downActive = yourScore === 0 ? " active" : "";
     return '<div class="reactions">' +
-      '<div class="reaction-col">' +
+      '<div class="reaction-row">' +
         '<button class="reaction-btn' + upActive + '" data-fountain-id="' + fountainId + '" data-score="1">👍 <span class="reaction-count">' + (thumbsUp || 0) + '</span></button>' +
         '<div class="reaction-label">Good water — reliable, clean, decent pressure</div>' +
       '</div>' +
-      '<div class="reaction-col">' +
+      '<div class="reaction-row">' +
         '<button class="reaction-btn' + downActive + '" data-fountain-id="' + fountainId + '" data-score="0">👎 <span class="reaction-count">' + (thumbsDown || 0) + '</span></button>' +
         '<div class="reaction-label">Not worth the detour — very low pressure, extremely dirty, etc</div>' +
       '</div>' +
@@ -222,6 +222,19 @@
     '</div>';
   }
 
+  function buildReportSection(local) {
+    if (!local) return "";
+    if (local.reported_off) {
+      return '<div class="report-section">' +
+        '<div class="report-status reported-off">Reported off (' + local.off_reports + ') as of ' + formatRelativeDate(local.last_off_report_at) + '</div>' +
+        '<div class="report-actions"><button class="report-btn report-on-btn" data-fountain-id="' + local.id + '" data-status="on">Report on</button></div>' +
+      '</div>';
+    }
+    return '<div class="report-section">' +
+      '<div class="report-actions"><button class="report-btn report-off-btn" data-fountain-id="' + local.id + '" data-status="off">Report off</button></div>' +
+    '</div>';
+  }
+
   function buildRatingSection(sourceType, sourceId, sourceOff) {
     var local = lookupFountain(sourceType, sourceId);
     if (!fountainIndexLoaded) {
@@ -241,20 +254,9 @@
       ? "Last rated " + formatRelativeDate(local.last_rated_at)
       : "";
 
-    var reportHtml = "";
-    var reportBtnHtml = "";
-    if (local.reported_off) {
-      reportHtml = '<div class="report-status reported-off">Reported off (' + local.off_reports + ') as of ' + formatRelativeDate(local.last_off_report_at) + '</div>';
-      reportBtnHtml = '<button class="report-btn report-on-btn" data-fountain-id="' + local.id + '" data-status="on">Report on</button>';
-    } else {
-      reportBtnHtml = '<button class="report-btn report-off-btn" data-fountain-id="' + local.id + '" data-status="off">Report off</button>';
-    }
-
     return '<div class="rating-section" data-fountain-id="' + local.id + '">' +
-      reportHtml +
       buildReactionButtons(local.id, local.thumbs_up, local.thumbs_down, myRatings[local.id] !== undefined ? myRatings[local.id] : null) +
       (lastRated ? '<div class="rating-last">' + lastRated + '</div>' : '') +
-      '<div class="report-actions">' + reportBtnHtml + '</div>' +
     '</div>';
   }
 
@@ -270,6 +272,7 @@
       detailsHtml +
       buildRatingSection("city_gis", String(f.OBJECTID), !running) +
       buildAttributeSection(local, isYes(f.ACCESSIBLE_MODEL)) +
+      buildReportSection(local) +
       '<div class="popup-footer">' +
         (f.PARK ? '<div class="popup-name">' + f.PARK + '</div>' : '') +
         '<div class="popup-source">Seattle City GIS</div>' +
@@ -299,6 +302,7 @@
       detailsHtml +
       buildRatingSection("osm", String(el.id), false) +
       buildAttributeSection(local, tags.wheelchair === "yes") +
+      buildReportSection(local) +
       '<div class="popup-footer">' +
         (title ? '<div class="popup-name">' + title + '</div>' : '') +
         '<div class="popup-source">OpenStreetMap</div>' +

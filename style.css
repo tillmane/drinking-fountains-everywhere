@@ -529,24 +529,22 @@ html, body {
 }
 
 .reactions {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
   margin-top: 4px;
 }
 
-.reaction-col {
+.reaction-row {
   display: flex;
-  flex-direction: column;
   align-items: center;
-  gap: 5px;
+  gap: 8px;
 }
 
 .reaction-label {
-  font-size: 10px;
+  font-size: 11px;
   color: #888;
   line-height: 1.3;
-  text-align: center;
 }
 
 .rating-last {
@@ -604,8 +602,13 @@ html, body {
   font-weight: 600;
 }
 
-.report-actions {
+.report-section {
   margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid #eee;
+}
+
+.report-actions {
   display: flex;
   gap: 6px;
 }
