@@ -44,7 +44,7 @@ A map of public water fountains with information about fountain conditions lets 
 - D1 backups: use D1 Time Travel (point-in-time restore, 30-day retention), plus scheduled snapshots to R2 objects
 - Persistent request logging (pre-pilot): add D1 `request_log` table before opening to pilot group
 
-### V2.3: Make It Better for Pilot Users
+### V2.3: Make It Better for Pilot Users (pushed June 10, 2026)
 - Bugs/Dumb Stuff
   - Add ability to rate Seattle City GIS fountains
 - UX Improvements
@@ -59,9 +59,26 @@ A map of public water fountains with information about fountain conditions lets 
   - Add admin filter to show edited and unedited fountains with counts of each
   - Secure Admin mode (authentication/PIN for attribute editing)
 
+### V2.4: A Simpler Rating Methodology
+- Bugs/Dumb Stuff
+  - Accessible filter doesn't work. Probably not pointing to the new attribute.
+- Change Ratings Structure
+  - I've decided to use a binary good/bad rating format instead of 1-5. Instead of stars, use thumbs up / thumbs down
+  - Replace smile pins with thumb up or down (keep question mark if not rated)
+  - Data transformation: change any 1-2 star ratings to thumb down and 3-5 star ratings to thumb up
+  - Add tool tip guidance to help users know what a thumb up or down should really mean. (Details TBD)
+- UX Updates
+  - Make pins for unrated fountains grey, not blue
+  - In the fountain pop-up, move the data source (OpenStreetMap or Seattle City GIS) to the bottom of the pop-up
+- Missing Fountains
+  - Allow users to report a fountain as Not Found
+  - When a user clicks Not Found, show a dialog that says, "Are you sure this fountain is missing? Reporting it Not Found will remove it from the map."
+  - Not Found fountains should not show on the map, except as a Layer in Admin mode
+- Read Access for All
+  - Allow anonymous users to be able to view the Pilot
+  - Include an option to request Pilot access
+
 ### V3:
-- Add doesn't exist option which requires validation
-- If a user rates a fountain less than 3 stars allow them to specify why: cleanliness, water pressure, taste, or location
 - Allow users to add water fountains
   - Require access restriction input (either confirm open to the public or add access restriction)
   - Add way for other users to verify
@@ -78,6 +95,7 @@ A map of public water fountains with information about fountain conditions lets 
 - Add about pages with background information and project context
 - Caching strategy for upstream API fetches and the fountain index endpoint
 - DB seed refresh strategy (detect new upstream fountains, periodic re-seed)
+- Find out how reliable / predictable seasonal shutoffs are. If they don't seem reliable consider re-introducing the unrated 6-month time delay requirement
 - Check Seattle City GIS data quality: do the City GIS fountains not in OSM actually exist? Is the Seattle City GIS data valuable?
 - Create a map showing the availability of working fountains in lower-income areas
 - Identify and add additional public data sources

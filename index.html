@@ -96,6 +96,16 @@
 
   </div>
 
+  <div id="confirm-modal" class="hidden">
+    <div id="confirm-modal-box">
+      <div id="confirm-message"></div>
+      <div id="confirm-modal-actions">
+        <button id="confirm-cancel-btn">Cancel</button>
+        <button id="confirm-ok-btn">Confirm</button>
+      </div>
+    </div>
+  </div>
+
   <div id="pin-modal" class="hidden">
     <div id="pin-modal-box">
       <div id="pin-modal-title">Admin PIN</div>
@@ -130,6 +140,11 @@
     </button>
     <button class="layer-suboption" data-option="unrated">
       <span class="checkbox"></span> Unrated <span class="rating-filter-count" id="count-unrated"></span>
+    </button>
+    <hr class="layer-control-divider">
+    <div id="layer-control-header">Not Found</div>
+    <button class="layer-suboption" data-option="not-found">
+      <span class="checkbox"></span> Show Not Found <span class="rating-filter-count" id="count-not-found"></span>
     </button>
   </div>
 

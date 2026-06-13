@@ -39,6 +39,14 @@ CREATE TABLE IF NOT EXISTS fountain_attributes (
   PRIMARY KEY (fountain_id, attribute)
 );
 
+CREATE TABLE IF NOT EXISTS not_found_reports (
+  id           INTEGER PRIMARY KEY AUTOINCREMENT,
+  fountain_id  INTEGER NOT NULL REFERENCES fountains(id),
+  device_id    TEXT    NOT NULL,
+  created_at   TEXT    NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now')),
+  UNIQUE (fountain_id, device_id)
+);
+
 CREATE TABLE IF NOT EXISTS request_log (
   id           INTEGER PRIMARY KEY AUTOINCREMENT,
   endpoint     TEXT    NOT NULL,
@@ -52,5 +60,6 @@ CREATE TABLE IF NOT EXISTS request_log (
 CREATE INDEX IF NOT EXISTS idx_ratings_fountain ON ratings(fountain_id);
 CREATE INDEX IF NOT EXISTS idx_fountain_sources_lookup ON fountain_sources(source_type, source_id);
 CREATE INDEX IF NOT EXISTS idx_status_reports_fountain ON status_reports(fountain_id, created_at);
+CREATE INDEX IF NOT EXISTS idx_not_found_fountain ON not_found_reports(fountain_id);
 CREATE INDEX IF NOT EXISTS idx_request_log_fountain ON request_log(fountain_id, created_at);
 CREATE INDEX IF NOT EXISTS idx_request_log_created ON request_log(created_at);

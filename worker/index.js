@@ -41,6 +41,8 @@ async function writeLog(db, endpoint, fountainId, devicePrefix, status, ms) {
   }
 }
 
+const NOT_FOUND_THRESHOLD = 3;
+
 async function handleAdminVerify(request, env, cors) {
   let body;
   try {
@@ -91,6 +93,14 @@ async function handleGetFountains(db, cors) {
       )
       .all();
 
+    const { results: nfReports } = await db
+      .prepare(
+        `SELECT fountain_id, COUNT(*) AS nf_count
+         FROM not_found_reports
+         GROUP BY fountain_id`
+      )
+      .all();
+
     const sourceMap = {};
     for (const s of sources) {
       if (!sourceMap[s.fountain_id]) sourceMap[s.fountain_id] = [];
@@ -111,6 +121,11 @@ async function handleGetFountains(db, cors) {
       reportMap[r.fountain_id] = { off_count: r.off_count, last_off_at: r.last_off_at };
     }
 
+    const nfMap = {};
+    for (const r of nfReports) {
+      nfMap[r.fountain_id] = r.nf_count;
+    }
+
     log("info", "GET /fountains", { status: 200, ms: Date.now() - t0 });
     return json({
       fountains: fountains.map((f) => {
@@ -127,6 +142,8 @@ async function handleGetFountains(db, cors) {
           user_accessible: fa.accessible || false,
           user_bottle_filler: fa.bottle_filler || false,
           user_dog_bowl: fa.dog_bowl || false,
+          not_found_count: nfMap[f.id] || 0,
+          not_found: (nfMap[f.id] || 0) >= NOT_FOUND_THRESHOLD,
         };
       }),
     }, 200, cors);
@@ -435,6 +452,108 @@ async function handlePostAttributes(db, fountainId, request, cors) {
   }
 }
 
+async function handlePostNotFound(db, fountainId, request, env, cors) {
+  const t0 = Date.now();
+  let devicePrefix = "unknown";
+  try {
+    const fountain = await db
+      .prepare("SELECT id FROM fountains WHERE id = ?")
+      .bind(fountainId)
+      .first();
+    if (!fountain) return err("Fountain not found", 404, cors);
+
+    let body;
+    try { body = await request.json(); } catch { return err("Invalid JSON", 400, cors); }
+    const { device_id } = body;
+    if (typeof device_id !== "string" || device_id.length < 1 || device_id.length > 64) {
+      return err("Invalid device_id", 400, cors);
+    }
+    devicePrefix = device_id.slice(0, 8);
+
+    await db
+      .prepare("INSERT OR IGNORE INTO not_found_reports (fountain_id, device_id) VALUES (?, ?)")
+      .bind(fountainId, device_id)
+      .run();
+
+    const agg = await db
+      .prepare("SELECT COUNT(*) AS nf_count FROM not_found_reports WHERE fountain_id = ?")
+      .bind(fountainId)
+      .first();
+
+    const nfCount = agg.nf_count || 0;
+    const ms = Date.now() - t0;
+    log("info", "POST /fountains/:id/not-found", { fountainId, devicePrefix, status: 200, ms });
+    await writeLog(db, "POST /not-found", fountainId, devicePrefix, 200, ms);
+    return json({
+      fountain_id: fountainId,
+      not_found_count: nfCount,
+      not_found: nfCount >= NOT_FOUND_THRESHOLD,
+      your_report: true,
+    }, 200, cors);
+  } catch (e) {
+    const ms = Date.now() - t0;
+    log("error", "POST /fountains/:id/not-found", { fountainId, devicePrefix, error: e.message, ms });
+    await writeLog(db, "POST /not-found", fountainId, devicePrefix, 500, ms);
+    return err("Internal server error", 500, cors);
+  }
+}
+
+async function handleDeleteNotFound(db, fountainId, request, env, cors) {
+  const t0 = Date.now();
+  let devicePrefix = "unknown";
+  try {
+    const fountain = await db
+      .prepare("SELECT id FROM fountains WHERE id = ?")
+      .bind(fountainId)
+      .first();
+    if (!fountain) return err("Fountain not found", 404, cors);
+
+    let body;
+    try { body = await request.json(); } catch { return err("Invalid JSON", 400, cors); }
+    const { device_id, admin_token } = body;
+
+    const isAdmin = env.ADMIN_PIN && admin_token === env.ADMIN_PIN;
+
+    if (isAdmin) {
+      await db
+        .prepare("DELETE FROM not_found_reports WHERE fountain_id = ?")
+        .bind(fountainId)
+        .run();
+      devicePrefix = "admin";
+    } else {
+      if (typeof device_id !== "string" || device_id.length < 1 || device_id.length > 64) {
+        return err("Invalid device_id", 400, cors);
+      }
+      devicePrefix = device_id.slice(0, 8);
+      await db
+        .prepare("DELETE FROM not_found_reports WHERE fountain_id = ? AND device_id = ?")
+        .bind(fountainId, device_id)
+        .run();
+    }
+
+    const agg = await db
+      .prepare("SELECT COUNT(*) AS nf_count FROM not_found_reports WHERE fountain_id = ?")
+      .bind(fountainId)
+      .first();
+
+    const nfCount = agg.nf_count || 0;
+    const ms = Date.now() - t0;
+    log("info", "DELETE /fountains/:id/not-found", { fountainId, devicePrefix, isAdmin, status: 200, ms });
+    await writeLog(db, "DELETE /not-found", fountainId, devicePrefix, 200, ms);
+    return json({
+      fountain_id: fountainId,
+      not_found_count: nfCount,
+      not_found: nfCount >= NOT_FOUND_THRESHOLD,
+      your_report: false,
+    }, 200, cors);
+  } catch (e) {
+    const ms = Date.now() - t0;
+    log("error", "DELETE /fountains/:id/not-found", { fountainId, devicePrefix, error: e.message, ms });
+    await writeLog(db, "DELETE /not-found", fountainId, devicePrefix, 500, ms);
+    return err("Internal server error", 500, cors);
+  }
+}
+
 export default {
   async fetch(request, env) {
     const cors = corsHeaders(env.ALLOWED_ORIGIN, request.headers.get("Origin"));
@@ -474,6 +593,14 @@ export default {
     const attrMatch = url.pathname.match(/^\/fountains\/(\d+)\/attributes$/);
     if (attrMatch && request.method === "POST") {
       return handlePostAttributes(env.DB, parseInt(attrMatch[1]), request, cors);
+    }
+
+    const nfMatch = url.pathname.match(/^\/fountains\/(\d+)\/not-found$/);
+    if (nfMatch && request.method === "POST") {
+      return handlePostNotFound(env.DB, parseInt(nfMatch[1]), request, env, cors);
+    }
+    if (nfMatch && request.method === "DELETE") {
+      return handleDeleteNotFound(env.DB, parseInt(nfMatch[1]), request, env, cors);
     }
 
     return new Response("Not Found", { status: 404, headers: cors });

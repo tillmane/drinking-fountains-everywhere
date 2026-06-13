@@ -27,6 +27,8 @@
   var fountainIndexLoaded = false;
   var powerUserMode = false;
   var myRatings = {}; // fountainId -> 0 | 1 | null
+  var myNotFoundReports = {}; // fountainId -> true
+  var adminPin = null;
 
   var map = L.map("map", {
     center: SEATTLE_CENTER,
@@ -58,6 +60,7 @@
   var layerOptions = {
     cityUniqueOnly: false,
     ratingFilter: null, // null | "rated" | "unrated"
+    showNotFound: false,
   };
 
   function cityHasOsmMatch(f) {
@@ -224,14 +227,28 @@
 
   function buildReportSection(local) {
     if (!local) return "";
+
+    var offHtml = "";
     if (local.reported_off) {
-      return '<div class="report-section">' +
-        '<div class="report-status reported-off">Reported off (' + local.off_reports + ') as of ' + formatRelativeDate(local.last_off_report_at) + '</div>' +
-        '<div class="report-actions"><button class="report-btn report-on-btn" data-fountain-id="' + local.id + '" data-status="on">Report on</button></div>' +
-      '</div>';
+      offHtml = '<div class="report-status reported-off">Reported off (' + local.off_reports + ') as of ' + formatRelativeDate(local.last_off_report_at) + '</div>' +
+        '<button class="report-btn report-on-btn" data-fountain-id="' + local.id + '" data-status="on">Report on</button>';
+    } else {
+      offHtml = '<button class="report-btn report-off-btn" data-fountain-id="' + local.id + '" data-status="off">Report off</button>';
     }
+
+    var nfHtml = "";
+    if (local.not_found && !powerUserMode) {
+      nfHtml = '<div class="report-status not-found-status">Reported not found (' + local.not_found_count + ')</div>';
+    } else if (powerUserMode) {
+      nfHtml = '<button class="report-btn reinstate-btn" data-fountain-id="' + local.id + '">Reinstate</button>';
+    } else if (myNotFoundReports[local.id]) {
+      nfHtml = '<button class="report-btn undo-not-found-btn" data-fountain-id="' + local.id + '">Undo Not Found</button>';
+    } else {
+      nfHtml = '<button class="report-btn not-found-btn" data-fountain-id="' + local.id + '">Not Found</button>';
+    }
+
     return '<div class="report-section">' +
-      '<div class="report-actions"><button class="report-btn report-off-btn" data-fountain-id="' + local.id + '" data-status="off">Report off</button></div>' +
+      '<div class="report-actions">' + offHtml + nfHtml + '</div>' +
     '</div>';
   }
 
@@ -344,8 +361,13 @@
       if (activeFilters.dog && !fountainHasDog("city_gis", String(f.OBJECTID), f)) return;
       if (layerOptions.cityUniqueOnly && cityHasOsmMatch(f)) return;
       if (!passesRatingFilter("city_gis", String(f.OBJECTID))) return;
+      var cityLocal = lookupFountain("city_gis", String(f.OBJECTID));
+      if (layerOptions.showNotFound) {
+        if (!cityLocal || !cityLocal.not_found) return;
+      } else if (cityLocal && cityLocal.not_found) return;
 
-      var cm = L.marker([f.LATITUDE, f.LONGITUDE], { icon: getCityIcon(f), zIndexOffset: getPinZIndex("city_gis", String(f.OBJECTID)) });
+      var cityIcon = layerOptions.showNotFound ? makeIcon("#9e9e9e", X_ICON) : getCityIcon(f);
+      var cm = L.marker([f.LATITUDE, f.LONGITUDE], { icon: cityIcon, zIndexOffset: getPinZIndex("city_gis", String(f.OBJECTID)) });
       cm._fountainData = f;
       cm.bindPopup(function () { return buildCityPopup(f); }).addTo(sources.city.layerGroup);
     });
@@ -363,8 +385,13 @@
       if (activeFilters.bottle && !fountainHasBottle("osm", String(el.id), el)) return;
       if (activeFilters.dog && !fountainHasDog("osm", String(el.id), el)) return;
       if (!passesRatingFilter("osm", String(el.id))) return;
+      var osmLocal = lookupFountain("osm", String(el.id));
+      if (layerOptions.showNotFound) {
+        if (!osmLocal || !osmLocal.not_found) return;
+      } else if (osmLocal && osmLocal.not_found) return;
 
-      var om = L.marker([el.lat, el.lon], { icon: getOsmIcon(el), zIndexOffset: getPinZIndex("osm", String(el.id)) });
+      var osmIcon = layerOptions.showNotFound ? makeIcon("#9e9e9e", X_ICON) : getOsmIcon(el);
+      var om = L.marker([el.lat, el.lon], { icon: osmIcon, zIndexOffset: getPinZIndex("osm", String(el.id)) });
       om._fountainData = el;
       om.bindPopup(function () { return buildOsmPopup(el); }).addTo(sources.osm.layerGroup);
     });
@@ -421,6 +448,7 @@
         });
         fountainIndexLoaded = true;
         updateRatingCounts();
+        updateNotFoundCount();
         renderAll();
       })
       .catch(function (err) {
@@ -518,6 +546,39 @@
       });
   }
 
+  function submitNotFound(fountainId, adminToken) {
+    if (!API_BASE) return;
+    var isUndo = !adminToken && myNotFoundReports[fountainId];
+    var method = (isUndo || adminToken) ? "DELETE" : "POST";
+    var body = adminToken
+      ? { admin_token: adminToken }
+      : { device_id: deviceId };
+    fetch(API_BASE + "/fountains/" + fountainId + "/not-found", {
+      method: method,
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    })
+      .then(function (res) { return res.json(); })
+      .then(function (data) {
+        if (data.error) {
+          showError("Failed: " + data.error);
+          return;
+        }
+        if (!adminToken) myNotFoundReports[fountainId] = data.your_report;
+        Object.keys(fountainIndex).forEach(function (key) {
+          if (fountainIndex[key].id === fountainId) {
+            fountainIndex[key].not_found_count = data.not_found_count;
+            fountainIndex[key].not_found = data.not_found;
+          }
+        });
+        map.closePopup();
+        renderAll();
+      })
+      .catch(function () {
+        showError("Failed to submit. Please try again.");
+      });
+  }
+
   function submitRating(fountainId, score) {
     if (!API_BASE) return;
     var isUnrating = myRatings[fountainId] === score;
@@ -589,6 +650,18 @@
     container.querySelectorAll(".report-btn").forEach(function (btn) {
       btn.addEventListener("click", function () {
         var fId = parseInt(this.dataset.fountainId);
+        if (btn.classList.contains("not-found-btn")) {
+          showConfirm("Are you sure this fountain is missing? Reporting it Not Found will remove it from the map.", function () { submitNotFound(fId); });
+          return;
+        }
+        if (btn.classList.contains("undo-not-found-btn")) {
+          submitNotFound(fId);
+          return;
+        }
+        if (btn.classList.contains("reinstate-btn")) {
+          submitNotFound(fId, adminPin);
+          return;
+        }
         var status = this.dataset.status;
         if (status === "off") {
           showConfirm("Report this fountain as turned off?", function () { submitReport(fId, status); });
@@ -867,6 +940,7 @@
         pinSubmitBtn.textContent = "Unlock";
         if (r.ok) {
           sessionStorage.setItem(ADMIN_SESSION_KEY, "1");
+          adminPin = pin;
           closePinModal();
           activateAdminMode();
         } else {
@@ -948,6 +1022,27 @@
 
   ratedBtn.addEventListener("click", function () { setRatingFilter("rated"); });
   unratedBtn.addEventListener("click", function () { setRatingFilter("unrated"); });
+
+  var notFoundBtn = document.querySelector('.layer-suboption[data-option="not-found"]');
+  var countNotFoundEl = document.getElementById("count-not-found");
+
+  function updateNotFoundCount() {
+    if (!fountainIndexLoaded || !countNotFoundEl) return;
+    var seen = {};
+    var count = 0;
+    Object.values(fountainIndex).forEach(function (f) {
+      if (seen[f.id]) return;
+      seen[f.id] = true;
+      if (f.not_found) count++;
+    });
+    countNotFoundEl.textContent = count;
+  }
+
+  notFoundBtn.addEventListener("click", function () {
+    layerOptions.showNotFound = !layerOptions.showNotFound;
+    notFoundBtn.classList.toggle("active", layerOptions.showNotFound);
+    renderAll();
+  });
 
   document.querySelectorAll(".layer-toggle").forEach(function (btn) {
     btn.addEventListener("click", function () {
