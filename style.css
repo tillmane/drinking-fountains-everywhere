@@ -504,15 +504,20 @@ html, body {
   color: #333;
 }
 
+.popup-footer {
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid #eee;
+}
+
 .popup-name {
-  margin-top: 6px;
   font-size: 11px;
   color: #1a1a1a;
   font-weight: 500;
+  margin-bottom: 2px;
 }
 
 .popup-source {
-  margin-top: 2px;
   font-size: 11px;
   color: #aaa;
 }
@@ -520,9 +525,7 @@ html, body {
 /* ─── Ratings ──────────────────────────────────────────────── */
 
 .rating-section {
-  margin-top: 10px;
-  padding-top: 8px;
-  border-top: 1px solid #eee;
+  margin-top: 6px;
 }
 
 .reactions {

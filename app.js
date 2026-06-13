@@ -259,14 +259,15 @@
     if (!running)
       detailsHtml += '<div class="details"><div><span class="detail-label">Reason Off:</span> ' + (f.REASON_OFF || "UNKNOWN") + '</div></div>';
 
-    var nameHtml = f.PARK ? '<div class="popup-name">' + f.PARK + '</div>' : '';
     return '<div class="fountain-popup">' +
       (running ? "" : '<span class="status off">Shut Off</span>') +
       detailsHtml +
       buildRatingSection("city_gis", String(f.OBJECTID), !running) +
       buildAttributeSection(local, isYes(f.ACCESSIBLE_MODEL)) +
-      nameHtml +
-      '<div class="popup-source">Seattle City GIS</div>' +
+      '<div class="popup-footer">' +
+        (f.PARK ? '<div class="popup-name">' + f.PARK + '</div>' : '') +
+        '<div class="popup-source">Seattle City GIS</div>' +
+      '</div>' +
     '</div>';
   }
 
@@ -288,13 +289,14 @@
     if (tags.check_date)
       detailsHtml += '<div class="details"><div><span class="detail-label">Last Verified:</span> ' + tags.check_date + '</div></div>';
 
-    var nameHtml = title ? '<div class="popup-name">' + title + '</div>' : '';
     return '<div class="fountain-popup">' +
       detailsHtml +
       buildRatingSection("osm", String(el.id), false) +
       buildAttributeSection(local, tags.wheelchair === "yes") +
-      nameHtml +
-      '<div class="popup-source">OpenStreetMap</div>' +
+      '<div class="popup-footer">' +
+        (title ? '<div class="popup-name">' + title + '</div>' : '') +
+        '<div class="popup-source">OpenStreetMap</div>' +
+      '</div>' +
     '</div>';
   }
 
@@ -578,6 +580,7 @@
       btn.addEventListener("click", function () {
         var fId = parseInt(this.dataset.fountainId);
         var status = this.dataset.status;
+        if (status === "off" && !confirm("Report this fountain as turned off?")) return;
         submitReport(fId, status);
       });
     });
