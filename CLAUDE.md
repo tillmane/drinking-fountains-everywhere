@@ -8,24 +8,31 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 **Target Users:** Urban runners, recreationists, and anyone seeking access to public drinking water.
 
-**Current Status:** Early-stage project. No codebase has been developed yet.
+**Live site:** https://fountainsforall.urbanfreerunners.com
 
-## Project Goals
+**Current Status:** V2.4 in production. Full feature set including map with Seattle City GIS + OpenStreetMap data, binary ratings (thumbs up/down), user-reported attributes (accessible, bottle filler, dog bowl), Report Off/On, and Not Found reports with hide-at-threshold behavior.
 
-### V1 Requirements
-- Use publicly available data source(s) for water fountain locations
-- Enable searching for nearby water fountains by address, intersection, or landmark
-- Indicate whether a water fountain is currently expected to be running or shut off
+## Tech Stack
 
-### Future Backlog
-- User-submitted ratings: fixture cleanliness, water pressure, taste
-- User-reported access limitations
-- Community-contributed water fountain locations (public fountains on private property)
+- **Frontend:** Static files (`index.html`, `app.js`, `style.css`) served by Cloudflare Pages, auto-deployed from `main` branch. No build step.
+- **Backend:** Cloudflare Workers (`worker/index.js`) + D1 SQLite database (`worker/schema.sql`).
+- **Map:** Leaflet.js with Seattle City GIS (ArcGIS) and OpenStreetMap (Overpass API) data sources.
 
-## Development Notes
+## Development Workflow
 
-This repository is in the initialization phase. When implementing the application:
-- Focus on Seattle as the initial target city
-- Prioritize simple, accessible solutions for V1
-- Consider mobile-first design for on-the-go access by runners
-- Research Seattle's open data sources for public water fountain locations
+**All changes are reviewed locally before merging to `main`.**
+
+- Work on the `dev` branch. Never commit directly to `main`.
+- `npm run serve` — serves frontend at `localhost:8080` against live production API data (CORS allows localhost).
+- When satisfied: merge `dev` → `main` and push → Cloudflare Pages auto-deploys the frontend.
+- Worker changes require a separate `npm run deploy` after merging to `main`.
+- Schema changes: `npm run db:schema` (idempotent `CREATE TABLE IF NOT EXISTS`).
+
+## Key Architecture Notes
+
+- Fountain data from two sources (City GIS + OSM) is deduplicated and stored in D1 via `fountain_sources` table. Matching by proximity within 30 meters.
+- Anonymous device IDs (`localStorage`) identify users for ratings and reports — no accounts.
+- Admin mode requires a PIN verified by the Worker (`POST /admin/verify`). PIN stored in `sessionStorage` for the session; also held in `adminPin` module variable for use in admin API calls.
+- `fountainIndex` is a client-side map keyed by `"source_type:source_id"` populated from `GET /fountains`.
+- Leaflet markers store `marker._fountainData` for surgical icon updates without full re-render.
+- `renderAll()` is used when fountain visibility changes (report off, not found); `updateMarkerForFountain()` for icon-only updates (rating changes).
