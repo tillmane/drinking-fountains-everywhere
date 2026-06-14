@@ -72,8 +72,8 @@ A map of public water fountains with information about fountain conditions lets 
   - In the fountain pop-up, move the data source (OpenStreetMap or Seattle City GIS) to the bottom of the pop-up
 - Missing Fountains
   - Allow users to report a fountain as Not Found
-  - When a user clicks Not Found, show a dialog that says, "Are you sure this fountain is missing? Reporting it Not Found will remove it from the map."
-  - Not Found fountains should not show on the map, except as a Layer in Admin mode
+  - When a user clicks Not Found, show a dialog that says, "Are you sure this fountain is missing? Reporting it Not Found may remove it from the map."
+  - Not Found fountains should not show on the map after 3 reports, except as a Layer in Admin mode
 - Read Access for All
   - Allow anonymous users to be able to view the Pilot
   - Include an option to request Pilot access
@@ -151,6 +151,16 @@ Ratings and other user-contributed data attach to a **local fountain identifier*
 - Ratings to survive if upstream IDs change or disappear
 
 Upstream sources are matched to local fountains by **proximity within 30 meters**. Analysis of current data shows ~92 of 212 Seattle City GIS fountains have an OSM match at this threshold, with the match curve plateauing between 20-30m.
+
+## Fountain State Logic
+| Rated? | Reported Off? | Reported Not Found 1-2 times? | Reported Not Found 3 times? | Rateable | Report Off button state | Not Found button state | Map Pin                                                 |
+| ------ | ------------- | ----------------------------- | --------------------------- | -------- | ----------------------- | ---------------------- | ------------------------------------------------------- |
+| N      | N             | N                             | N                           | Y        | Report off              | Not found              | grey with ?                                             |
+| Y or N | Y             | N                             | N                           | Y        | Report on               | Not found              | orange with X                                           |
+| Y or N | Y or N        | Y - by current user           | N                           | N        | not visible             | Undo not found         | orange with ?                                           |
+| Y or N | Y or N        | Y - by other users            | N                           | N        | not visible             | Confirm not found      | orange with ?                                           |
+| Y or N | Y or N        | Y or N                        | Y                           | Y        | Report on               | Undo not found         | not visible except in Admin mode shows as orange with ? |
+| Y      | N             | N                             | N                           | Y        | Report off              | Not found              | blue with thumb up or down                              |
 
 ## Deployment
 
