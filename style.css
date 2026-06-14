@@ -602,6 +602,11 @@ html, body {
   font-weight: 600;
 }
 
+.report-status.not-found-status {
+  color: #e67e22;
+  font-weight: 600;
+}
+
 .report-section {
   margin-top: 8px;
   padding-top: 8px;
@@ -624,10 +629,17 @@ html, body {
   transition: background 0.15s, color 0.15s;
 }
 
-.report-off-btn:hover {
-  background: #fce8e6;
-  color: #c62828;
+.report-off-btn,
+.not-found-btn,
+.confirm-not-found-btn {
   border-color: #c62828;
+  color: #c62828;
+}
+
+.report-off-btn:hover,
+.not-found-btn:hover,
+.confirm-not-found-btn:hover {
+  background: #fce8e6;
 }
 
 .report-on-btn:hover {

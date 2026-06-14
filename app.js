@@ -137,8 +137,9 @@
   }
 
   var icons = {
-    cityOff:     makeIcon("#c62828", X_ICON),
-    reportedOff: makeIcon("#e67e22", X_ICON),
+    cityOff:        makeIcon("#c62828", X_ICON),
+    reportedOff:    makeIcon("#e67e22", X_ICON),
+    reportedNotFound: makeIcon("#e67e22", QUESTION_ICON),
   };
 
   function lookupFountain(sourceType, sourceId) {
@@ -228,21 +229,39 @@
   function buildReportSection(local) {
     if (!local) return "";
 
+    var anyNfReport = local.not_found_count > 0;
+    var myNfReport = !!myNotFoundReports[local.id];
+    var thresholdReached = local.not_found;
+
+    // When threshold is reached, only admin can see/act — all report controls hidden for regular users
+    if (thresholdReached && !powerUserMode) {
+      return '<div class="report-section">' +
+        '<div class="report-actions">' +
+          '<button class="report-btn reinstate-btn" data-fountain-id="' + local.id + '" style="display:none">Reinstate</button>' +
+        '</div>' +
+      '</div>';
+    }
+
     var offHtml = "";
-    if (local.reported_off) {
-      offHtml = '<div class="report-status reported-off">Reported off (' + local.off_reports + ') as of ' + formatRelativeDate(local.last_off_report_at) + '</div>' +
-        '<button class="report-btn report-on-btn" data-fountain-id="' + local.id + '" data-status="on">Report on</button>';
-    } else {
-      offHtml = '<button class="report-btn report-off-btn" data-fountain-id="' + local.id + '" data-status="off">Report off</button>';
+    // Report Off is hidden if any not-found report exists (not-found overrides)
+    if (!anyNfReport) {
+      if (local.reported_off) {
+        offHtml = '<div class="report-status reported-off">Reported off (' + local.off_reports + ') as of ' + formatRelativeDate(local.last_off_report_at) + '</div>' +
+          '<button class="report-btn report-on-btn" data-fountain-id="' + local.id + '" data-status="on">Report on</button>';
+      } else {
+        offHtml = '<button class="report-btn report-off-btn" data-fountain-id="' + local.id + '" data-status="off">Report off</button>';
+      }
     }
 
     var nfHtml = "";
-    if (local.not_found && !powerUserMode) {
-      nfHtml = '<div class="report-status not-found-status">Reported not found (' + local.not_found_count + ')</div>';
-    } else if (powerUserMode) {
+    if (powerUserMode && thresholdReached) {
       nfHtml = '<button class="report-btn reinstate-btn" data-fountain-id="' + local.id + '">Reinstate</button>';
-    } else if (myNotFoundReports[local.id]) {
-      nfHtml = '<button class="report-btn undo-not-found-btn" data-fountain-id="' + local.id + '">Undo Not Found</button>';
+    } else if (myNfReport) {
+      nfHtml = '<div class="report-status not-found-status">Reported not found as of ' + formatRelativeDate(local.last_not_found_at) + '</div>' +
+        '<button class="report-btn undo-not-found-btn" data-fountain-id="' + local.id + '">Undo Not Found</button>';
+    } else if (anyNfReport) {
+      nfHtml = '<div class="report-status not-found-status">Reported not found (' + local.not_found_count + ')</div>' +
+        '<button class="report-btn confirm-not-found-btn" data-fountain-id="' + local.id + '">Confirm Not Found</button>';
     } else {
       nfHtml = '<button class="report-btn not-found-btn" data-fountain-id="' + local.id + '">Not Found</button>';
     }
@@ -340,13 +359,20 @@
     return makeIcon(color, QUESTION_ICON);
   }
 
+  function isReportedNotFound(sourceType, sourceId) {
+    var local = lookupFountain(sourceType, sourceId);
+    return local && local.not_found_count > 0;
+  }
+
   function getCityIcon(f) {
     if (!isCityRunning(f)) return icons.cityOff;
+    if (isReportedNotFound("city_gis", String(f.OBJECTID))) return icons.reportedNotFound;
     if (isReportedOff("city_gis", String(f.OBJECTID))) return icons.reportedOff;
     return pinStateToIcon(getPinStateForFountain("city_gis", String(f.OBJECTID)), "#2563eb");
   }
 
   function getOsmIcon(el) {
+    if (isReportedNotFound("osm", String(el.id))) return icons.reportedNotFound;
     if (isReportedOff("osm", String(el.id))) return icons.reportedOff;
     var color = powerUserMode ? "#0891b2" : "#2563eb";
     return pinStateToIcon(getPinStateForFountain("osm", String(el.id)), color);
@@ -366,7 +392,7 @@
         if (!cityLocal || !cityLocal.not_found) return;
       } else if (cityLocal && cityLocal.not_found) return;
 
-      var cityIcon = layerOptions.showNotFound ? makeIcon("#9e9e9e", X_ICON) : getCityIcon(f);
+      var cityIcon = layerOptions.showNotFound ? icons.reportedNotFound : getCityIcon(f);
       var cm = L.marker([f.LATITUDE, f.LONGITUDE], { icon: cityIcon, zIndexOffset: getPinZIndex("city_gis", String(f.OBJECTID)) });
       cm._fountainData = f;
       cm.bindPopup(function () { return buildCityPopup(f); }).addTo(sources.city.layerGroup);
@@ -390,7 +416,7 @@
         if (!osmLocal || !osmLocal.not_found) return;
       } else if (osmLocal && osmLocal.not_found) return;
 
-      var osmIcon = layerOptions.showNotFound ? makeIcon("#9e9e9e", X_ICON) : getOsmIcon(el);
+      var osmIcon = layerOptions.showNotFound ? icons.reportedNotFound : getOsmIcon(el);
       var om = L.marker([el.lat, el.lon], { icon: osmIcon, zIndexOffset: getPinZIndex("osm", String(el.id)) });
       om._fountainData = el;
       om.bindPopup(function () { return buildOsmPopup(el); }).addTo(sources.osm.layerGroup);
@@ -569,6 +595,7 @@
           if (fountainIndex[key].id === fountainId) {
             fountainIndex[key].not_found_count = data.not_found_count;
             fountainIndex[key].not_found = data.not_found;
+            fountainIndex[key].last_not_found_at = data.last_not_found_at;
           }
         });
         map.closePopup();
@@ -650,8 +677,8 @@
     container.querySelectorAll(".report-btn").forEach(function (btn) {
       btn.addEventListener("click", function () {
         var fId = parseInt(this.dataset.fountainId);
-        if (btn.classList.contains("not-found-btn")) {
-          showConfirm("Are you sure this fountain is missing? Reporting it Not Found will remove it from the map.", function () { submitNotFound(fId); });
+        if (btn.classList.contains("not-found-btn") || btn.classList.contains("confirm-not-found-btn")) {
+          showConfirm("Are you sure this fountain is missing? Reporting it Not Found may result in removal from the map.", function () { submitNotFound(fId); });
           return;
         }
         if (btn.classList.contains("undo-not-found-btn")) {

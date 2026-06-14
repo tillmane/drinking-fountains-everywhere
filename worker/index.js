@@ -95,7 +95,7 @@ async function handleGetFountains(db, cors) {
 
     const { results: nfReports } = await db
       .prepare(
-        `SELECT fountain_id, COUNT(*) AS nf_count
+        `SELECT fountain_id, COUNT(*) AS nf_count, MAX(created_at) AS last_nf_at
          FROM not_found_reports
          GROUP BY fountain_id`
       )
@@ -123,7 +123,7 @@ async function handleGetFountains(db, cors) {
 
     const nfMap = {};
     for (const r of nfReports) {
-      nfMap[r.fountain_id] = r.nf_count;
+      nfMap[r.fountain_id] = { nf_count: r.nf_count, last_nf_at: r.last_nf_at };
     }
 
     log("info", "GET /fountains", { status: 200, ms: Date.now() - t0 });
@@ -142,8 +142,9 @@ async function handleGetFountains(db, cors) {
           user_accessible: fa.accessible || false,
           user_bottle_filler: fa.bottle_filler || false,
           user_dog_bowl: fa.dog_bowl || false,
-          not_found_count: nfMap[f.id] || 0,
-          not_found: (nfMap[f.id] || 0) >= NOT_FOUND_THRESHOLD,
+          not_found_count: nfMap[f.id] ? nfMap[f.id].nf_count : 0,
+          not_found: nfMap[f.id] ? nfMap[f.id].nf_count >= NOT_FOUND_THRESHOLD : false,
+          last_not_found_at: nfMap[f.id] ? nfMap[f.id].last_nf_at : null,
         };
       }),
     }, 200, cors);
@@ -476,7 +477,7 @@ async function handlePostNotFound(db, fountainId, request, env, cors) {
       .run();
 
     const agg = await db
-      .prepare("SELECT COUNT(*) AS nf_count FROM not_found_reports WHERE fountain_id = ?")
+      .prepare("SELECT COUNT(*) AS nf_count, MAX(created_at) AS last_nf_at FROM not_found_reports WHERE fountain_id = ?")
       .bind(fountainId)
       .first();
 
@@ -488,6 +489,7 @@ async function handlePostNotFound(db, fountainId, request, env, cors) {
       fountain_id: fountainId,
       not_found_count: nfCount,
       not_found: nfCount >= NOT_FOUND_THRESHOLD,
+      last_not_found_at: agg.last_nf_at,
       your_report: true,
     }, 200, cors);
   } catch (e) {
@@ -532,7 +534,7 @@ async function handleDeleteNotFound(db, fountainId, request, env, cors) {
     }
 
     const agg = await db
-      .prepare("SELECT COUNT(*) AS nf_count FROM not_found_reports WHERE fountain_id = ?")
+      .prepare("SELECT COUNT(*) AS nf_count, MAX(created_at) AS last_nf_at FROM not_found_reports WHERE fountain_id = ?")
       .bind(fountainId)
       .first();
 
@@ -544,6 +546,7 @@ async function handleDeleteNotFound(db, fountainId, request, env, cors) {
       fountain_id: fountainId,
       not_found_count: nfCount,
       not_found: nfCount >= NOT_FOUND_THRESHOLD,
+      last_not_found_at: agg.last_nf_at,
       your_report: false,
     }, 200, cors);
   } catch (e) {
