@@ -1,4 +1,4 @@
-name = "drinking-fountains-api"
+name = "drinking-fountains-everywhere"
 main = "worker/index.js"
 compatibility_date = "2025-01-01"
 
