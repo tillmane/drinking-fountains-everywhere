@@ -77,7 +77,7 @@ async function handleGetFountains(db, cors) {
       .all();
 
     const { results: sources } = await db
-      .prepare("SELECT fountain_id, source_type, source_id FROM fountain_sources")
+      .prepare("SELECT fountain_id, source_type, source_id, source_data FROM fountain_sources")
       .all();
 
     const { results: attrs } = await db
@@ -107,6 +107,7 @@ async function handleGetFountains(db, cors) {
       sourceMap[s.fountain_id].push({
         source_type: s.source_type,
         source_id: s.source_id,
+        source_data: s.source_data ? JSON.parse(s.source_data) : null,
       });
     }
 

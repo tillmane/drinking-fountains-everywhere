@@ -10,6 +10,7 @@ CREATE TABLE IF NOT EXISTS fountain_sources (
   fountain_id  INTEGER NOT NULL REFERENCES fountains(id),
   source_type  TEXT    NOT NULL CHECK (source_type IN ('osm', 'city_gis')),
   source_id    TEXT    NOT NULL,
+  source_data  TEXT,
   PRIMARY KEY (fountain_id, source_type, source_id)
 );
 

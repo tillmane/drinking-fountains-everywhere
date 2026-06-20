@@ -16,7 +16,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 - **Frontend:** Static files (`index.html`, `app.js`, `style.css`) served by Cloudflare Pages, auto-deployed from `main` branch. No build step.
 - **Backend:** Cloudflare Workers (`worker/index.js`) + D1 SQLite database (`worker/schema.sql`).
-- **Map:** Leaflet.js with Seattle City GIS (ArcGIS) and OpenStreetMap (Overpass API) data sources.
+- **Map:** Leaflet.js. All fountain data served from D1 via the Worker — no browser-side ArcGIS or Overpass fetches at runtime.
 
 ## Development Workflow
 
@@ -30,9 +30,10 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Key Architecture Notes
 
-- Fountain data from two sources (City GIS + OSM) is deduplicated and stored in D1 via `fountain_sources` table. Matching by proximity within 30 meters.
+- Fountain data from two sources (City GIS + OSM) is deduplicated and stored in D1 via `fountain_sources` table. Matching by proximity within 30 meters. Full upstream JSON is stored in `fountain_sources.source_data`.
+- Upstream data is synced manually (not at page load) using `npm run sync`. Run this monthly or when source data changes (new fountains, seasonal shutoffs, OBJECTID drift).
 - Anonymous device IDs (`localStorage`) identify users for ratings and reports — no accounts.
 - Admin mode requires a PIN verified by the Worker (`POST /admin/verify`). PIN stored in `sessionStorage` for the session; also held in `adminPin` module variable for use in admin API calls.
-- `fountainIndex` is a client-side map keyed by `"source_type:source_id"` populated from `GET /fountains`.
-- Leaflet markers store `marker._fountainData` for surgical icon updates without full re-render.
+- `fountainIndex` is a client-side map keyed by both fountain `id` (integer) and `"source_type:source_id"` strings, populated from `GET /fountains`. `fountainList` is the canonical ordered array.
+- Leaflet markers store `marker._fountainId` (integer) for surgical icon updates without full re-render.
 - `renderAll()` is used when fountain visibility changes (report off, not found); `updateMarkerForFountain()` for icon-only updates (rating changes).

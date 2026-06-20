@@ -14,7 +14,51 @@ Access to clean drinking water for all, within 300 meters in urban areas.
 
 A map of public water fountains with information about fountain conditions lets urban recreationists easily find reliable drinking water.
 
-## Requirements
+## Release Planning
+
+### V3.0: Spread the Word
+- Add Marketing Material
+  - branding???
+  - about this project, contact info, SEO, resources about public water access, water privatization
+- Read Access for All
+  - Allow anonymous users to be able to view the Pilot
+  - Include an option to request Pilot access
+
+### V3.1: The Fine Print + Monitoring & Alerting
+- Terms of Use
+- Tech stack and data source licensing audit
+- Production monitoring of request traffic and storage size
+
+### V3.2: Adding Fountains
+- Allow users to add water fountains
+  - When adding a fountain, it should be rateable and checkboxes should be available
+  - After first addition, map pin shows a + icon and an "explosion" halo
+  - Fountain data source: User Added
+  - New fountain shows "explosion" halo for 30 days after it was added
+  - Allow other users to confirm the new fountain
+    - A new fountain includes a Confirmed! button
+    - After second confirmation, map pin shows thumb up/down rating and Confirmed! button disappears. "explosion" halo remains
+  - Admin Layer
+    - New unconfirmed fountains filter: shows all user-added fountains that have not yet received 2 confirmations
+    - User Added data source filter under OSM and City GIS filters
+- Periodic data source updates
+  - Check data sources for any changes: fountains dropped, fountains added, existing fountain attribute changes
+  - Create an admin report for manual review
+
+### V4: Bathrooms!
+- Add public bathrooms
+
+### Backlog:
+- Accessibility audit
+- Allow users to note any access limitations
+- Caching strategy for upstream API fetches and the fountain index endpoint
+- Find out how reliable / predictable seasonal shutoffs are. If they don't seem reliable consider re-introducing the unrated 6-month time delay requirement
+- Check Seattle City GIS data quality: do the City GIS fountains not in OSM actually exist? Is the Seattle City GIS data valuable?
+- Create a map showing the availability of working fountains in lower-income areas
+- Identify and add additional public data sources
+- Add link to Google street view?
+
+## Release History
 
 ### V1: POC (April 29, 2026)
 - Use publicly available data source(s)
@@ -59,7 +103,7 @@ A map of public water fountains with information about fountain conditions lets 
   - Add admin filter to show edited and unedited fountains with counts of each
   - Secure Admin mode (authentication/PIN for attribute editing)
 
-### V2.4: A Simpler Rating Methodology
+### V2.4: A Simpler Rating Methodology (pushed June 14, 2026)
 - Bugs/Dumb Stuff
   - Accessible filter doesn't work. Probably not pointing to the new attribute.
 - Change Ratings Structure
@@ -74,32 +118,6 @@ A map of public water fountains with information about fountain conditions lets 
   - Allow users to report a fountain as Not Found
   - When a user clicks Not Found, show a dialog that says, "Are you sure this fountain is missing? Reporting it Not Found may remove it from the map."
   - Not Found fountains should not show on the map after 3 reports, except as a Layer in Admin mode
-- Read Access for All
-  - Allow anonymous users to be able to view the Pilot
-  - Include an option to request Pilot access
-
-### V3:
-- Allow users to add water fountains
-  - Require access restriction input (either confirm open to the public or add access restriction)
-  - Add way for other users to verify
-
-### V4:
-- Add public bathrooms
-
-### Backlog:
-- Terms of Use
-- Tech stack and data source licensing audit
-- Accessibility audit
-- Allow users to note any access limitations
-- Add branding
-- Add about pages with background information and project context
-- Caching strategy for upstream API fetches and the fountain index endpoint
-- DB seed refresh strategy (detect new upstream fountains, periodic re-seed)
-- Find out how reliable / predictable seasonal shutoffs are. If they don't seem reliable consider re-introducing the unrated 6-month time delay requirement
-- Check Seattle City GIS data quality: do the City GIS fountains not in OSM actually exist? Is the Seattle City GIS data valuable?
-- Create a map showing the availability of working fountains in lower-income areas
-- Identify and add additional public data sources
-- Add link to Google street view?
 
 ## Tech Stack
 
@@ -135,10 +153,10 @@ A map of public water fountains with information about fountain conditions lets 
 - Daily SQL export to R2 bucket `drinking-fountains-db-backups` via GitHub Actions (`.github/workflows/db-backup.yml`)
 
 **Data Sources:**
-- [Seattle City GIS Drinking Fountain dataset](https://data-seattlecitygis.opendata.arcgis.com/datasets/SeattleCityGIS::drinking-fountain-1/) (ArcGIS REST API) — 212 active fountains. Authoritative for park fountains; location data is reliable but `CURRENT_STATUS` field is unmaintained (207 of 212 records are null).
+- [Seattle City GIS Drinking Fountain dataset](https://data-seattlecitygis.opendata.arcgis.com/datasets/SeattleCityGIS::drinking-fountain-1/) (ArcGIS REST API) — 212 active fountains. Authoritative for park fountains; location data is reliable but `CURRENT_STATUS` field is largely unmaintained.
 - [OpenStreetMap](https://www.openstreetmap.org/) via the [Overpass API](https://wiki.openstreetmap.org/wiki/Overpass_API) — 456 nodes tagged `amenity=drinking_water` in the Seattle/Bellevue bounding box. Broader coverage (includes non-park fountains) but quality varies by contributor activity.
 
-Fetches are live at page load for V1; a caching strategy will be needed before broader release.
+Upstream data is fetched and synced into D1 manually using `npm run sync` (see Sync section below). The browser never hits ArcGIS or Overpass directly.
 
 **Coverage area:** Seattle and Bellevue, Washington (bounding box `47.3,-122.5,47.8,-122.1`). 576 total fountains after deduplication (92 matched across sources within 30m).
 
@@ -174,6 +192,22 @@ All changes are reviewed locally before being pushed to `main`. Pushing to `main
 3. Open `http://localhost:8080` in the browser and review against live production data
 4. When satisfied: commit and push to `main` → Cloudflare Pages auto-deploys
 
+**Simulating authenticated (pilot) mode locally:**
+
+`localhost:8080` has no Cloudflare Access cookie, so the app defaults to read-only mode. To test the full write UI, paste this in the DevTools console and reload:
+
+```javascript
+document.cookie = "CF_Authorization=local-dev; path=/";
+location.reload();
+```
+
+To return to read-only mode:
+
+```javascript
+document.cookie = "CF_Authorization=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/";
+location.reload();
+```
+
 **Worker changes:**
 1. Make changes to `worker/index.js`
 2. Review logic; test locally with `npm run dev` if needed
@@ -191,10 +225,12 @@ Connected to the `main` branch of this repo. Pushes to `main` trigger an automat
 npm run serve            # serve frontend locally at localhost:8080 for review
 npm run deploy           # deploy worker/index.js to production
 npm run db:schema        # apply schema.sql to production D1 (idempotent)
-npm run db:seed          # fetch upstream data and seed production D1
+npm run db:seed          # (initial setup only) seed production D1 from upstream sources
 npm run dev              # run worker locally at localhost:8787
 npm run db:schema:local  # apply schema to local D1
 npm run db:seed:local    # seed local D1
+npm run sync:preview     # fetch upstream data and write worker/sync-data.sql for review
+npm run sync             # fetch upstream data and apply to production D1
 ```
 
 ### Refreshing local DB from a production backup
@@ -218,6 +254,38 @@ npx wrangler tail   # stream live Worker logs
 # Query persistent request_log in D1:
 npx wrangler d1 execute drinking-fountains-db --remote \
   --command="SELECT * FROM request_log ORDER BY created_at DESC LIMIT 50"
+```
+
+### Syncing upstream fountain data
+
+Fountain positions, source IDs, and attributes (park name, accessible, bottle filler, etc.) are stored in D1 and served entirely from the Worker. The browser never fetches ArcGIS or Overpass directly.
+
+Run a sync when:
+- ArcGIS OBJECTIDs have drifted (symptom: City GIS fountains show "Ratings coming soon")
+- New fountains have been added to either upstream source
+- Seasonal shutoff status has changed (spring/autumn)
+- Roughly monthly is sufficient
+
+```bash
+npm run sync:preview     # fetch upstream data, write worker/sync-data.sql — review before applying
+npm run sync             # fetch upstream data and apply directly to production D1
+```
+
+The sync script (`worker/sync.js`):
+- Fetches all active City GIS fountains from the ArcGIS FeatureServer
+- Fetches all `amenity=drinking_water` nodes from Overpass in the Seattle/Bellevue bounding box
+- Matches each upstream feature to existing D1 fountains by proximity (within 30m)
+- Inserts new `fountains` rows only for unmatched features
+- Upserts `fountain_sources` rows, refreshing `source_data` JSON for all matched features
+
+**What it does NOT touch:** ratings, attributes, reports, or any user-contributed data. These are keyed to the internal integer `fountain_id` and survive syncs unchanged.
+
+#### First-time schema migration
+
+If upgrading from a database that predates the `source_data` column, apply the migration first:
+
+```bash
+npm run db:migrate:add-source-data
 ```
 
 ### Backups

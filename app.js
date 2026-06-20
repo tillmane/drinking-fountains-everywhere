@@ -3,12 +3,8 @@
 
   var API_BASE = "https://drinking-fountains-api.urbanfreerunners.com";
 
-  var ARCGIS_URL =
-    "https://services.arcgis.com/ZOyb2t4B0UYuYNYH/arcgis/rest/services/Drinking_Fountain/FeatureServer/0/query";
-  var OVERPASS_URL = "https://overpass-api.de/api/interpreter";
   var NOMINATIM_URL = "https://nominatim.openstreetmap.org/search";
   var SEATTLE_CENTER = [47.6062, -122.3321];
-  var SEATTLE_BOUNDS = "47.3,-122.5,47.8,-122.1";
   var DEFAULT_ZOOM = 13;
   var SEARCH_ZOOM = 16;
 
@@ -29,6 +25,8 @@
   var myRatings = {}; // fountainId -> 0 | 1 | null
   var myNotFoundReports = {}; // fountainId -> true
   var adminPin = null;
+  var pilotMode = false;
+  var REQUEST_ACCESS_URL = 'https://docs.google.com/forms/d/e/1FAIpQLSct5j7wwDKQetU40e9zEkbe-7Y6GoZ4iV6cPy2ZmP09iH-NgA/viewform?usp=publish-editor';
 
   var map = L.map("map", {
     center: SEATTLE_CENTER,
@@ -52,67 +50,62 @@
   };
 
   var sources = {
-    city: { layerGroup: L.layerGroup().addTo(map), data: [], visible: true },
-    osm:  { layerGroup: L.layerGroup().addTo(map), data: [], visible: true },
+    city: { layerGroup: L.layerGroup().addTo(map), visible: true },
+    osm:  { layerGroup: L.layerGroup().addTo(map), visible: true },
   };
 
-  var OSM_MATCH_METERS = 30;
   var layerOptions = {
     cityUniqueOnly: false,
     ratingFilter: null, // null | "rated" | "unrated"
     showNotFound: false,
   };
 
-  function cityHasOsmMatch(f) {
-    var cityLatLng = L.latLng(f.LATITUDE, f.LONGITUDE);
-    return sources.osm.data.some(function (el) {
-      return cityLatLng.distanceTo([el.lat, el.lon]) <= OSM_MATCH_METERS;
-    });
-  }
-
   function isYes(val) {
     return typeof val === "string" && val.toUpperCase() === "YES";
   }
 
-  function isCityRunning(f) {
-    return f.CURRENT_STATUS === "ON" || f.CURRENT_STATUS === null || f.CURRENT_STATUS === undefined;
+  function isCityRunning(sd) {
+    return sd.CURRENT_STATUS === "ON" || sd.CURRENT_STATUS === null || sd.CURRENT_STATUS === undefined;
   }
 
-  function isReportedOff(sourceType, sourceId) {
-    var local = lookupFountain(sourceType, sourceId);
-    return local && local.reported_off;
+  function getSourceData(local, sourceType) {
+    var src = (local.sources || []).find(function (s) { return s.source_type === sourceType && s.source_data !== null; });
+    return src ? src.source_data : null;
   }
 
-  function hasBottleFiller(sourceType, sourceId, sourceData) {
-    if (sourceType === "city_gis") return isYes(sourceData.BOTTLE_FILLER);
-    if (sourceType === "osm") return sourceData.tags && sourceData.tags.bottle === "yes";
+  function fountainHasOsmMatch(local) {
+    return (local.sources || []).some(function (s) { return s.source_type === "osm" && s.source_data !== null; });
+  }
+
+  function fountainHasCityGisMatch(local) {
+    return (local.sources || []).some(function (s) { return s.source_type === "city_gis" && s.source_data !== null; });
+  }
+
+  function fountainHasAccessible(local) {
+    if (local.user_accessible) return true;
+    var city = getSourceData(local, "city_gis");
+    if (city) return isYes(city.ACCESSIBLE_MODEL);
+    var osm = getSourceData(local, "osm");
+    if (osm) return (osm.tags || {}).wheelchair === "yes";
     return false;
   }
 
-  function hasDogBowl(sourceType, sourceId, sourceData) {
-    if (sourceType === "city_gis") return isYes(sourceData.DOG_BOWL);
-    if (sourceType === "osm") return sourceData.tags && sourceData.tags.dog === "yes";
+  function fountainHasBottle(local) {
+    if (local.user_bottle_filler) return true;
+    var city = getSourceData(local, "city_gis");
+    if (city) return isYes(city.BOTTLE_FILLER);
+    var osm = getSourceData(local, "osm");
+    if (osm) return (osm.tags || {}).bottle === "yes";
     return false;
   }
 
-  function fountainHasAccessible(sourceType, sourceId, sourceData) {
-    var local = lookupFountain(sourceType, sourceId);
-    if (local && local.user_accessible) return true;
-    if (sourceType === "city_gis") return isYes(sourceData.ACCESSIBLE_MODEL);
-    if (sourceType === "osm") return (sourceData.tags || {}).wheelchair === "yes";
+  function fountainHasDog(local) {
+    if (local.user_dog_bowl) return true;
+    var city = getSourceData(local, "city_gis");
+    if (city) return isYes(city.DOG_BOWL);
+    var osm = getSourceData(local, "osm");
+    if (osm) return (osm.tags || {}).dog === "yes";
     return false;
-  }
-
-  function fountainHasBottle(sourceType, sourceId, sourceData) {
-    var local = lookupFountain(sourceType, sourceId);
-    if (local && local.user_bottle_filler) return true;
-    return hasBottleFiller(sourceType, sourceId, sourceData);
-  }
-
-  function fountainHasDog(sourceType, sourceId, sourceData) {
-    var local = lookupFountain(sourceType, sourceId);
-    if (local && local.user_dog_bowl) return true;
-    return hasDogBowl(sourceType, sourceId, sourceData);
   }
 
   var X_ICON = '<line x1="9" y1="10" x2="19" y2="20" stroke="#fff" stroke-width="2.2" stroke-linecap="round" opacity="0.9"/>' +
@@ -146,23 +139,16 @@
     return fountainIndex[sourceType + ":" + sourceId] || null;
   }
 
-  function isRated(sourceType, sourceId) {
-    var local = lookupFountain(sourceType, sourceId);
-    return local && local.rating_count > 0;
-  }
-
-  function passesRatingFilter(sourceType, sourceId) {
-    if (!layerOptions.ratingFilter) return true;
-    var rated = isRated(sourceType, sourceId);
-    return layerOptions.ratingFilter === "rated" ? rated : !rated;
-  }
-
-  function getPinStateForFountain(sourceType, sourceId) {
-    if (!fountainIndexLoaded) return "unrated";
-    var local = lookupFountain(sourceType, sourceId);
-    if (!local || !local.rating_count) return "unrated";
+  function getPinStateForLocal(local) {
+    if (!fountainIndexLoaded || !local || !local.rating_count) return "unrated";
     if (local.thumbs_down > local.thumbs_up) return "down";
     return "up";
+  }
+
+  function passesRatingFilter(local) {
+    if (!layerOptions.ratingFilter) return true;
+    var rated = local && local.rating_count > 0;
+    return layerOptions.ratingFilter === "rated" ? rated : !rated;
   }
 
   function formatRelativeDate(isoString) {
@@ -205,6 +191,14 @@
 
   function buildAttributeSection(local, sourceAccessible) {
     if (!local) return "";
+    if (!pilotMode) {
+      var parts = [];
+      if (sourceAccessible || local.user_accessible) parts.push("Accessible");
+      if (local.user_bottle_filler) parts.push("Bottle Filler");
+      if (local.user_dog_bowl) parts.push("Dog Bowl");
+      if (parts.length === 0) return "";
+      return '<div class="attr-section attr-section-readonly"><span class="attr-readonly-label">' + parts.join(" · ") + '</span></div>';
+    }
     var accessibleChecked = (sourceAccessible || local.user_accessible) ? " checked" : "";
     var bottleChecked = local.user_bottle_filler ? " checked" : "";
     var dogChecked = local.user_dog_bowl ? " checked" : "";
@@ -228,6 +222,7 @@
 
   function buildReportSection(local) {
     if (!local) return "";
+    if (!pilotMode) return "";
 
     var anyNfReport = local.not_found_count > 0;
     var myNfReport = !!myNotFoundReports[local.id];
@@ -271,8 +266,7 @@
     '</div>';
   }
 
-  function buildRatingSection(sourceType, sourceId, sourceOff) {
-    var local = lookupFountain(sourceType, sourceId);
+  function buildRatingSection(local, sourceOff) {
     if (!fountainIndexLoaded) {
       return '<div class="rating-section"><p class="rating-unavailable">Loading ratings…</p></div>';
     }
@@ -286,6 +280,20 @@
       '</div>';
     }
 
+    if (!pilotMode) {
+      var ratingsSummary = (local.rating_count > 0)
+        ? '<div class="rating-summary">' +
+            '<span class="rating-summary-item">👍 ' + (local.thumbs_up || 0) + '</span>' +
+            '<span class="rating-summary-item">👎 ' + (local.thumbs_down || 0) + '</span>' +
+            (local.last_rated_at ? '<span class="rating-last">Last rated ' + formatRelativeDate(local.last_rated_at) + '</span>' : '') +
+          '</div>'
+        : '<p class="rating-unavailable">Not yet rated</p>';
+      return '<div class="rating-section" data-fountain-id="' + local.id + '">' +
+        ratingsSummary +
+        '<p class="rating-request-access"><a href="' + REQUEST_ACCESS_URL + '" target="_blank" rel="noopener">Request pilot access</a> to rate this fountain.</p>' +
+      '</div>';
+    }
+
     var lastRated = local.last_rated_at
       ? "Last rated " + formatRelativeDate(local.last_rated_at)
       : "";
@@ -296,59 +304,43 @@
     '</div>';
   }
 
-  function buildCityPopup(f) {
-    var running = isCityRunning(f);
-    var local = lookupFountain("city_gis", String(f.OBJECTID));
-    var detailsHtml = "";
-    if (!running)
-      detailsHtml += '<div class="details"><div><span class="detail-label">Reason Off:</span> ' + (f.REASON_OFF || "UNKNOWN") + '</div></div>';
+  function buildPopup(local) {
+    if (!local) return '<div class="fountain-popup"><p>Data unavailable</p></div>';
 
-    return '<div class="fountain-popup">' +
-      (running ? "" : '<span class="status off">Shut Off</span>') +
-      detailsHtml +
-      buildRatingSection("city_gis", String(f.OBJECTID), !running) +
-      buildAttributeSection(local, isYes(f.ACCESSIBLE_MODEL)) +
-      buildReportSection(local) +
-      '<div class="popup-footer">' +
-        (f.PARK ? '<div class="popup-name">' + f.PARK + '</div>' : '') +
-        '<div class="popup-source">Seattle City GIS</div>' +
-      '</div>' +
-    '</div>';
-  }
+    var citySD = getSourceData(local, "city_gis");
+    var osmSD = getSourceData(local, "osm");
+    var tags = osmSD ? osmSD.tags || {} : {};
 
-  function buildOsmPopup(el) {
-    var tags = el.tags || {};
-    var local = lookupFountain("osm", String(el.id));
+    var running = citySD ? isCityRunning(citySD) : true;
+    var sourceLabel = citySD ? "Seattle City GIS" : "OpenStreetMap";
 
-    var title = null;
-    if (local) {
-      var citySource = (local.sources || []).find(function (s) { return s.source_type === "city_gis"; });
-      if (citySource) {
-        var cityRecord = sources.city.data.find(function (f) { return String(f.OBJECTID) === citySource.source_id; });
-        if (cityRecord && cityRecord.PARK) title = cityRecord.PARK;
-      }
-    }
+    var title = (citySD && citySD.PARK) || null;
     if (!title && tags.name && tags.name !== "Drinking Fountain") title = tags.name;
 
     var detailsHtml = "";
-    if (tags.check_date)
+    if (citySD && !running)
+      detailsHtml += '<div class="details"><div><span class="detail-label">Reason Off:</span> ' + (citySD.REASON_OFF || "UNKNOWN") + '</div></div>';
+    if (!citySD && tags.check_date)
       detailsHtml += '<div class="details"><div><span class="detail-label">Last Verified:</span> ' + tags.check_date + '</div></div>';
 
+    var sourceAccessible = citySD ? isYes(citySD.ACCESSIBLE_MODEL) : tags.wheelchair === "yes";
+
     return '<div class="fountain-popup">' +
+      (citySD && !running ? '<span class="status off">Shut Off</span>' : '') +
       detailsHtml +
-      buildRatingSection("osm", String(el.id), false) +
-      buildAttributeSection(local, tags.wheelchair === "yes") +
+      buildRatingSection(local, !running) +
+      buildAttributeSection(local, sourceAccessible) +
       buildReportSection(local) +
       '<div class="popup-footer">' +
         (title ? '<div class="popup-name">' + title + '</div>' : '') +
-        '<div class="popup-source">OpenStreetMap</div>' +
+        '<div class="popup-source">' + sourceLabel + '</div>' +
       '</div>' +
     '</div>';
   }
 
-  function getPinZIndex(sourceType, sourceId) {
-    var state = getPinStateForFountain(sourceType, sourceId);
-    if (state === "unrated" && !isReportedOff(sourceType, sourceId)) return 0;
+  function getPinZIndex(local) {
+    var state = getPinStateForLocal(local);
+    if (state === "unrated" && !(local && local.reported_off)) return 0;
     return 1000;
   }
 
@@ -359,67 +351,67 @@
     return makeIcon(color, QUESTION_ICON);
   }
 
-  function isReportedNotFound(sourceType, sourceId) {
-    var local = lookupFountain(sourceType, sourceId);
+  function isReportedNotFound(local) {
     return local && local.not_found_count > 0;
   }
 
-  function getCityIcon(f) {
-    if (!isCityRunning(f)) return icons.cityOff;
-    if (isReportedNotFound("city_gis", String(f.OBJECTID))) return icons.reportedNotFound;
-    if (isReportedOff("city_gis", String(f.OBJECTID))) return icons.reportedOff;
-    return pinStateToIcon(getPinStateForFountain("city_gis", String(f.OBJECTID)), "#2563eb");
+  function getCityIcon(local, sd) {
+    if (sd && !isCityRunning(sd)) return icons.cityOff;
+    if (isReportedNotFound(local)) return icons.reportedNotFound;
+    if (local && local.reported_off) return icons.reportedOff;
+    return pinStateToIcon(getPinStateForLocal(local), "#2563eb");
   }
 
-  function getOsmIcon(el) {
-    if (isReportedNotFound("osm", String(el.id))) return icons.reportedNotFound;
-    if (isReportedOff("osm", String(el.id))) return icons.reportedOff;
+  function getOsmIcon(local) {
+    if (isReportedNotFound(local)) return icons.reportedNotFound;
+    if (local && local.reported_off) return icons.reportedOff;
     var color = powerUserMode ? "#0891b2" : "#2563eb";
-    return pinStateToIcon(getPinStateForFountain("osm", String(el.id)), color);
+    return pinStateToIcon(getPinStateForLocal(local), color);
   }
+
+  // fountainList is an array of fountain records from GET /fountains,
+  // each having .id, .lat, .lon, .sources (with source_data), ratings, etc.
+  var fountainList = [];
 
   function renderCity() {
     sources.city.layerGroup.clearLayers();
-    sources.city.data.forEach(function (f) {
-      if (f.LIFE_CYCLE_CODE !== "A") return;
-      if (activeFilters.accessible && !fountainHasAccessible("city_gis", String(f.OBJECTID), f)) return;
-      if (activeFilters.bottle && !fountainHasBottle("city_gis", String(f.OBJECTID), f)) return;
-      if (activeFilters.dog && !fountainHasDog("city_gis", String(f.OBJECTID), f)) return;
-      if (layerOptions.cityUniqueOnly && cityHasOsmMatch(f)) return;
-      if (!passesRatingFilter("city_gis", String(f.OBJECTID))) return;
-      var cityLocal = lookupFountain("city_gis", String(f.OBJECTID));
+    fountainList.forEach(function (local) {
+      var citySD = getSourceData(local, "city_gis");
+      if (!citySD) return;
+      if (layerOptions.cityUniqueOnly && fountainHasOsmMatch(local)) return;
+      if (activeFilters.accessible && !fountainHasAccessible(local)) return;
+      if (activeFilters.bottle && !fountainHasBottle(local)) return;
+      if (activeFilters.dog && !fountainHasDog(local)) return;
+      if (!passesRatingFilter(local)) return;
       if (layerOptions.showNotFound) {
-        if (!cityLocal || !cityLocal.not_found) return;
-      } else if (cityLocal && cityLocal.not_found) return;
+        if (!local.not_found) return;
+      } else if (local.not_found) return;
 
-      var cityIcon = layerOptions.showNotFound ? icons.reportedNotFound : getCityIcon(f);
-      var cm = L.marker([f.LATITUDE, f.LONGITUDE], { icon: cityIcon, zIndexOffset: getPinZIndex("city_gis", String(f.OBJECTID)) });
-      cm._fountainData = f;
-      cm.bindPopup(function () { return buildCityPopup(f); }).addTo(sources.city.layerGroup);
+      var icon = layerOptions.showNotFound ? icons.reportedNotFound : getCityIcon(local, citySD);
+      var cm = L.marker([local.lat, local.lon], { icon: icon, zIndexOffset: getPinZIndex(local) });
+      cm._fountainId = local.id;
+      cm.bindPopup(function () { return buildPopup(local); }).addTo(sources.city.layerGroup);
     });
   }
 
   function renderOsm() {
     sources.osm.layerGroup.clearLayers();
-    sources.osm.data.forEach(function (el) {
-      var tags = el.tags || {};
-      if (!powerUserMode) {
-        var local = lookupFountain("osm", String(el.id));
-        if (local && (local.sources || []).some(function (s) { return s.source_type === "city_gis"; })) return;
-      }
-      if (activeFilters.accessible && !fountainHasAccessible("osm", String(el.id), el)) return;
-      if (activeFilters.bottle && !fountainHasBottle("osm", String(el.id), el)) return;
-      if (activeFilters.dog && !fountainHasDog("osm", String(el.id), el)) return;
-      if (!passesRatingFilter("osm", String(el.id))) return;
-      var osmLocal = lookupFountain("osm", String(el.id));
+    fountainList.forEach(function (local) {
+      var osmSD = getSourceData(local, "osm");
+      if (!osmSD) return;
+      if (!powerUserMode && fountainHasCityGisMatch(local)) return;
+      if (activeFilters.accessible && !fountainHasAccessible(local)) return;
+      if (activeFilters.bottle && !fountainHasBottle(local)) return;
+      if (activeFilters.dog && !fountainHasDog(local)) return;
+      if (!passesRatingFilter(local)) return;
       if (layerOptions.showNotFound) {
-        if (!osmLocal || !osmLocal.not_found) return;
-      } else if (osmLocal && osmLocal.not_found) return;
+        if (!local.not_found) return;
+      } else if (local.not_found) return;
 
-      var osmIcon = layerOptions.showNotFound ? icons.reportedNotFound : getOsmIcon(el);
-      var om = L.marker([el.lat, el.lon], { icon: osmIcon, zIndexOffset: getPinZIndex("osm", String(el.id)) });
-      om._fountainData = el;
-      om.bindPopup(function () { return buildOsmPopup(el); }).addTo(sources.osm.layerGroup);
+      var icon = layerOptions.showNotFound ? icons.reportedNotFound : getOsmIcon(local);
+      var om = L.marker([local.lat, local.lon], { icon: icon, zIndexOffset: getPinZIndex(local) });
+      om._fountainId = local.id;
+      om.bindPopup(function () { return buildPopup(local); }).addTo(sources.osm.layerGroup);
     });
   }
 
@@ -430,22 +422,24 @@
   }
 
   function updateMarkerForFountain(fountainId) {
-    sources.city.layerGroup.eachLayer(function (marker) {
-      var f = marker._fountainData;
-      if (!f) return;
-      var local = lookupFountain("city_gis", String(f.OBJECTID));
-      if (!local || local.id !== fountainId) return;
-      marker.setIcon(getCityIcon(f));
-      marker.setZIndexOffset(getPinZIndex("city_gis", String(f.OBJECTID)));
-    });
-    sources.osm.layerGroup.eachLayer(function (marker) {
-      var el = marker._fountainData;
-      if (!el) return;
-      var local = lookupFountain("osm", String(el.id));
-      if (!local || local.id !== fountainId) return;
-      marker.setIcon(getOsmIcon(el));
-      marker.setZIndexOffset(getPinZIndex("osm", String(el.id)));
-    });
+    var local = fountainIndex[fountainId];
+    if (!local) return;
+    var hasCityGis = fountainHasCityGisMatch(local);
+    var hasOsm = (getSourceData(local, "osm") !== null);
+    if (hasCityGis) {
+      sources.city.layerGroup.eachLayer(function (marker) {
+        if (marker._fountainId !== fountainId) return;
+        marker.setIcon(getCityIcon(local, getSourceData(local, "city_gis")));
+        marker.setZIndexOffset(getPinZIndex(local));
+      });
+    }
+    if (hasOsm) {
+      sources.osm.layerGroup.eachLayer(function (marker) {
+        if (marker._fountainId !== fountainId) return;
+        marker.setIcon(getOsmIcon(local));
+        marker.setZIndexOffset(getPinZIndex(local));
+      });
+    }
   }
 
   function updateCount() {
@@ -461,13 +455,15 @@
     el.textContent = count + " fountain" + (count !== 1 ? "s" : "") + " in view";
   }
 
-  function fetchFountainIndex() {
+  function fetchFountains() {
     if (!API_BASE) return;
     fetch(API_BASE + "/fountains")
       .then(function (res) { return res.json(); })
       .then(function (data) {
         fountainIndex = {};
-        (data.fountains || []).forEach(function (f) {
+        fountainList = data.fountains || [];
+        fountainList.forEach(function (f) {
+          fountainIndex[f.id] = f;
           (f.sources || []).forEach(function (s) {
             fountainIndex[s.source_type + ":" + s.source_id] = f;
           });
@@ -478,44 +474,8 @@
         renderAll();
       })
       .catch(function (err) {
-        console.error("Failed to fetch fountain index:", err);
+        console.error("Failed to fetch fountains:", err);
       });
-  }
-
-  function fetchCity() {
-    var params = new URLSearchParams({
-      where: "1=1",
-      outFields: [
-        "OBJECTID", "PARK", "ACCESSIBLE_MODEL", "CURRENT_STATUS",
-        "REASON_OFF", "LATITUDE", "LONGITUDE", "LIFE_CYCLE_CODE",
-        "BOTTLE_FILLER", "DOG_BOWL",
-      ].join(","),
-      f: "json",
-      resultRecordCount: 2000,
-    });
-
-    fetch(ARCGIS_URL + "?" + params)
-      .then(function (res) { return res.json(); })
-      .then(function (data) {
-        if (!data.features) return;
-        sources.city.data = data.features.map(function (f) { return f.attributes; });
-        renderCity();
-        updateCount();
-      })
-      .catch(function (err) { console.error("Failed to fetch City GIS data:", err); });
-  }
-
-  function fetchOsm() {
-    var query = '[out:json];node[amenity=drinking_water](' + SEATTLE_BOUNDS + ');out body;';
-    fetch(OVERPASS_URL, { method: "POST", body: query })
-      .then(function (res) { return res.json(); })
-      .then(function (data) {
-        sources.osm.data = data.elements || [];
-        renderOsm();
-        if (layerOptions.cityUniqueOnly) renderCity();
-        updateCount();
-      })
-      .catch(function (err) { console.error("Failed to fetch OSM data:", err); });
   }
 
   function submitAttribute(fountainId, attribute, value) {
@@ -531,13 +491,12 @@
           showError("Update failed: " + data.error);
           return;
         }
-        Object.keys(fountainIndex).forEach(function (key) {
-          if (fountainIndex[key].id === fountainId) {
-            fountainIndex[key].user_accessible = data.user_accessible;
-            fountainIndex[key].user_bottle_filler = data.user_bottle_filler;
-            fountainIndex[key].user_dog_bowl = data.user_dog_bowl;
-          }
-        });
+        var f = fountainIndex[fountainId];
+        if (f) {
+          f.user_accessible = data.user_accessible;
+          f.user_bottle_filler = data.user_bottle_filler;
+          f.user_dog_bowl = data.user_dog_bowl;
+        }
       })
       .catch(function () {
         showError("Failed to update attribute. Please try again.");
@@ -557,13 +516,12 @@
           showError("Report failed: " + data.error);
           return;
         }
-        Object.keys(fountainIndex).forEach(function (key) {
-          if (fountainIndex[key].id === fountainId) {
-            fountainIndex[key].reported_off = data.reported_off;
-            fountainIndex[key].off_reports = data.off_reports;
-            fountainIndex[key].last_off_report_at = data.last_off_report_at;
-          }
-        });
+        var f = fountainIndex[fountainId];
+        if (f) {
+          f.reported_off = data.reported_off;
+          f.off_reports = data.off_reports;
+          f.last_off_report_at = data.last_off_report_at;
+        }
         map.closePopup();
         renderAll();
       })
@@ -591,13 +549,12 @@
           return;
         }
         if (!adminToken) myNotFoundReports[fountainId] = data.your_report;
-        Object.keys(fountainIndex).forEach(function (key) {
-          if (fountainIndex[key].id === fountainId) {
-            fountainIndex[key].not_found_count = data.not_found_count;
-            fountainIndex[key].not_found = data.not_found;
-            fountainIndex[key].last_not_found_at = data.last_not_found_at;
-          }
-        });
+        var f = fountainIndex[fountainId];
+        if (f) {
+          f.not_found_count = data.not_found_count;
+          f.not_found = data.not_found;
+          f.last_not_found_at = data.last_not_found_at;
+        }
         map.closePopup();
         renderAll();
       })
@@ -622,14 +579,13 @@
           return;
         }
         myRatings[fountainId] = isUnrating ? null : score;
-        Object.keys(fountainIndex).forEach(function (key) {
-          if (fountainIndex[key].id === fountainId) {
-            fountainIndex[key].thumbs_up = data.thumbs_up;
-            fountainIndex[key].thumbs_down = data.thumbs_down;
-            fountainIndex[key].rating_count = data.rating_count;
-            fountainIndex[key].last_rated_at = data.last_rated_at;
-          }
-        });
+        var f = fountainIndex[fountainId];
+        if (f) {
+          f.thumbs_up = data.thumbs_up;
+          f.thumbs_down = data.thumbs_down;
+          f.rating_count = data.rating_count;
+          f.last_rated_at = data.last_rated_at;
+        }
         updateOpenPopupRating(fountainId, data);
         updateMarkerForFountain(fountainId);
       })
@@ -1023,11 +979,8 @@
 
   function updateRatingCounts() {
     if (!fountainIndexLoaded) return;
-    var seen = {};
     var rated = 0, unrated = 0;
-    Object.values(fountainIndex).forEach(function (f) {
-      if (seen[f.id]) return;
-      seen[f.id] = true;
+    fountainList.forEach(function (f) {
       if (f.rating_count > 0) rated++; else unrated++;
     });
     countRatedEl.textContent = rated;
@@ -1055,13 +1008,8 @@
 
   function updateNotFoundCount() {
     if (!fountainIndexLoaded || !countNotFoundEl) return;
-    var seen = {};
     var count = 0;
-    Object.values(fountainIndex).forEach(function (f) {
-      if (seen[f.id]) return;
-      seen[f.id] = true;
-      if (f.not_found) count++;
-    });
+    fountainList.forEach(function (f) { if (f.not_found) count++; });
     countNotFoundEl.textContent = count;
   }
 
@@ -1104,8 +1052,26 @@
     legendToggle.textContent = "▸";
   });
 
-  fetchCity();
-  fetchOsm();
-  fetchFountainIndex();
+  function detectPilotMode() {
+    // CF Access sets CF_Authorization as a non-HttpOnly cookie; its presence means the
+    // user authenticated successfully against the email allowlist.
+    var hasCfAuth = document.cookie.split(';').some(function (c) {
+      return c.trim().startsWith('CF_Authorization=');
+    });
+    pilotMode = hasCfAuth;
+    if (pilotMode) {
+      powerUserBtn.classList.remove('hidden');
+    } else {
+      var banner = document.getElementById('request-access-banner');
+      if (banner) {
+        banner.classList.remove('hidden');
+        var bannerLink = document.getElementById('request-access-link');
+        if (bannerLink) bannerLink.href = REQUEST_ACCESS_URL;
+      }
+    }
+  }
+
+  detectPilotMode();
+  fetchFountains();
   preloadLocation();
 })();
