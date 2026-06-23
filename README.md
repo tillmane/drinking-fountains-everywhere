@@ -1,11 +1,5 @@
 # Public Drinking Water Finder
 
-## Background
-
-As an avid urban runner, I'm always on the lookout for sources of clean drinking water so that I don't have to wear a pack or carry water with me, especially on longer runs. The city of Seattle has many public water fountains, but they are not always easy to locate, or are sometimes shut off. I want to know that I will have access to clean drinking water on my running routes. Access to clean water is a basic human right, yet even in urban areas with high standards of living, public drinking water can be elusive.
-
-This project was founded by and for runners, but it's really about the bigger issue of clean water.
-
 ## Vision
 
 Access to clean drinking water for all, within 300 meters in urban areas. 
@@ -14,94 +8,19 @@ Access to clean drinking water for all, within 300 meters in urban areas.
 
 A map of public water fountains with information about fountain conditions lets urban recreationists easily find reliable drinking water.
 
-## Release Planning
+## Background
 
-### V3.0: Spread the Word
-- Add Marketing Material
-  - branding???
-  - about this project, contact info, SEO, resources about public water access, water privatization
+As an avid urban runner, I'm always on the lookout for sources of clean drinking water so that I don't have to wear a pack or carry water with me, especially on longer runs. The city of Seattle has many public water fountains, but they're not always easy to locate, and I often find them shut off or decommissioned. I want to know that I will have access to clean drinking water on my running routes, but really I want the same for anyone in our city. 
+
+Access to clean water is a basic human right, yet even in urban areas with high standards of living, public drinking water can be elusive.
+
+## Release History
+
+### V3.0: Pilot Launch 
 - Read Access for All
   - Allow anonymous users to be able to view the Pilot
   - Include an option to request Pilot access
 
-### V3.1: The Fine Print + Monitoring & Alerting
-- Terms of Use
-- Tech stack and data source licensing audit
-- Production monitoring of request traffic and storage size
-
-### V3.2: Adding Fountains
-- Allow users to add water fountains
-  - When adding a fountain, it should be rateable and checkboxes should be available
-  - After first addition, map pin shows a + icon and an "explosion" halo
-  - Fountain data source: User Added
-  - New fountain shows "explosion" halo for 30 days after it was added
-  - Allow other users to confirm the new fountain
-    - A new fountain includes a Confirmed! button
-    - After second confirmation, map pin shows thumb up/down rating and Confirmed! button disappears. "explosion" halo remains
-  - Admin Layer
-    - New unconfirmed fountains filter: shows all user-added fountains that have not yet received 2 confirmations
-    - User Added data source filter under OSM and City GIS filters
-- Periodic data source updates
-  - Check data sources for any changes: fountains dropped, fountains added, existing fountain attribute changes
-  - Create an admin report for manual review
-
-### V4: Bathrooms!
-- Add public bathrooms
-
-### Backlog:
-- Accessibility audit
-- Allow users to note any access limitations
-- Caching strategy for upstream API fetches and the fountain index endpoint
-- Find out how reliable / predictable seasonal shutoffs are. If they don't seem reliable consider re-introducing the unrated 6-month time delay requirement
-- Check Seattle City GIS data quality: do the City GIS fountains not in OSM actually exist? Is the Seattle City GIS data valuable?
-- Create a map showing the availability of working fountains in lower-income areas
-- Identify and add additional public data sources
-- Add link to Google street view?
-
-## Release History
-
-### V1: POC (April 29, 2026)
-- Use publicly available data source(s)
-- Allow searching for nearby water fountains by address, intersection, or landmark
-- Give an indication whether a water fountain is currently expected to be running or if it has been shut off
-
-### V2.1: Add User Ratings Capability (pushed May 22, 2026)
-- Allow users to submit water fountain ratings on a scale of 1 to 5
-- Show the date of the last rating
-- Anonymous ratings using device identifier (localStorage UUID) for abuse control; one rating per device per fountain (upsert)
-- Allow users to report a fountain as off or on
-  - Source-off (City GIS `CURRENT_STATUS`): red pin, user input disabled
-  - User-reported off: orange pin, "Reported off (N) as of [date]"; reporting on clears all off reports
-- Expand coverage area to include Bellevue, WA
-- Filter by Accessible, Bottle Filler, and Dog Bowl attributes
-- Power user mode (gear icon, bottom-left) shows Layers control and enables editing of Bottle Filler and Dog Bowl attributes on any fountain
-- User-contributed attributes stored separately from source data in D1; merged at display time and for filtering
-- Backend: Cloudflare Workers + D1, deployed at `drinking-fountains-api.tillmane.workers.dev`
-
-### V2.2: Publish to Production and Ready for Pilot Users (pushed June 2, 2026)
-- Publish frontend to Cloudflare Pages at `fountainsforall.urbanfreerunning.com`
-- Gate access with Cloudflare Access (email allowlist)
-- Structured request logging on all Worker endpoints
-- CORS restricted to `fountainsforall.urbanfreerunning.com`
-- Security response headers
-- Rate limiting: configure a Cloudflare WAF rate-limiting rule on POST endpoints
-- D1 backups: use D1 Time Travel (point-in-time restore, 30-day retention), plus scheduled snapshots to R2 objects
-- Persistent request logging (pre-pilot): add D1 `request_log` table before opening to pilot group
-
-### V2.3: Make It Better for Pilot Users (pushed June 10, 2026)
-- Bugs/Dumb Stuff
-  - Add ability to rate Seattle City GIS fountains
-- UX Improvements
-  - Only show different-colored pins depending on data source when in Admin mode. The default pin color for regular users should be the darker blue.
-  - Fountains that have not been rated or that were rated over 6 months ago should have a different pin (color or question mark pin? Or show a smile in pins that have been rated, with degree of smile dependent on star rating)
-  - Pre-load user's location on page load to reduce processing time when using locator button. Show polite error message if location services are disabled in the browser or on the device
-  - Fix map controls positioning
-  - Add a map legend (map pin colors)
-  - OSM fountains are all named "Drinking Fountain" but Seattle GIS fountains have a name (park name etc.). Recommend dropping fountain titles and including the Seattle GIS fountain name in the small print next to the data source.
-  - When a user rates a fountain, update the icon to match the rating.
-- Admin Features
-  - Add admin filter to show edited and unedited fountains with counts of each
-  - Secure Admin mode (authentication/PIN for attribute editing)
 
 ### V2.4: A Simpler Rating Methodology (pushed June 14, 2026)
 - Bugs/Dumb Stuff
@@ -119,7 +38,58 @@ A map of public water fountains with information about fountain conditions lets 
   - When a user clicks Not Found, show a dialog that says, "Are you sure this fountain is missing? Reporting it Not Found may remove it from the map."
   - Not Found fountains should not show on the map after 3 reports, except as a Layer in Admin mode
 
+### V2.3: Make It Better for Pilot Users (pushed June 10, 2026)
+- Bugs/Dumb Stuff
+  - Add ability to rate Seattle City GIS fountains
+- UX Improvements
+  - Only show different-colored pins depending on data source when in Admin mode. The default pin color for regular users should be the darker blue.
+  - Fountains that have not been rated or that were rated over 6 months ago should have a different pin (color or question mark pin? Or show a smile in pins that have been rated, with degree of smile dependent on star rating)
+  - Pre-load user's location on page load to reduce processing time when using locator button. Show polite error message if location services are disabled in the browser or on the device
+  - Fix map controls positioning
+  - Add a map legend (map pin colors)
+  - OSM fountains are all named "Drinking Fountain" but Seattle GIS fountains have a name (park name etc.). Recommend dropping fountain titles and including the Seattle GIS fountain name in the small print next to the data source.
+  - When a user rates a fountain, update the icon to match the rating.
+- Admin Features
+  - Add admin filter to show edited and unedited fountains with counts of each
+  - Secure Admin mode (authentication/PIN for attribute editing)
+
+### V2.2: Publish to Production and Ready for Pilot Users (pushed June 2, 2026)
+- Publish frontend to Cloudflare Pages at `fountainsforall.urbanfreerunning.com`
+- Gate access with Cloudflare Access (email allowlist)
+- Structured request logging on all Worker endpoints
+- CORS restricted to `fountainsforall.urbanfreerunning.com`
+- Security response headers
+- Rate limiting: configure a Cloudflare WAF rate-limiting rule on POST endpoints
+- D1 backups: use D1 Time Travel (point-in-time restore, 30-day retention), plus scheduled snapshots to R2 objects
+- Persistent request logging (pre-pilot): add D1 `request_log` table before opening to pilot group
+
+### V2.1: Add User Ratings Capability (pushed May 22, 2026)
+- Allow users to submit water fountain ratings on a scale of 1 to 5
+- Show the date of the last rating
+- Anonymous ratings using device identifier (localStorage UUID) for abuse control; one rating per device per fountain (upsert)
+- Allow users to report a fountain as off or on
+  - Source-off (City GIS `CURRENT_STATUS`): red pin, user input disabled
+  - User-reported off: orange pin, "Reported off (N) as of [date]"; reporting on clears all off reports
+- Expand coverage area to include Bellevue, WA
+- Filter by Accessible, Bottle Filler, and Dog Bowl attributes
+- Power user mode (gear icon, bottom-left) shows Layers control and enables editing of Bottle Filler and Dog Bowl attributes on any fountain
+- User-contributed attributes stored separately from source data in D1; merged at display time and for filtering
+- Backend: Cloudflare Workers + D1
+
+### V1: POC (April 29, 2026)
+- Use publicly available data source(s)
+- Allow searching for nearby water fountains by address, intersection, or landmark
+- Give an indication whether a water fountain is currently expected to be running or if it has been shut off
+
 ## Tech Stack
+
+**Data Sources:**
+- [Seattle City GIS Drinking Fountain dataset](https://data-seattlecitygis.opendata.arcgis.com/datasets/SeattleCityGIS::drinking-fountain-1/) (ArcGIS REST API) — 212 active fountains. Authoritative for park fountains; location data is reliable but `CURRENT_STATUS` field is largely unmaintained.
+- [OpenStreetMap](https://www.openstreetmap.org/) via the [Overpass API](https://wiki.openstreetmap.org/wiki/Overpass_API) — 456 nodes tagged `amenity=drinking_water` in the Seattle/Bellevue bounding box. Broader coverage (includes non-park fountains) but quality varies by contributor activity.
+
+Upstream data is fetched and synced into D1 manually using `npm run sync` (see Sync section below). The browser never hits ArcGIS or Overpass directly.
+
+**Coverage area:** Seattle and Bellevue, Washington (bounding box `47.3,-122.5,47.8,-122.1`). 576 total fountains after deduplication (92 matched across sources within 30m).
 
 **Frontend:**
 - Vanilla HTML/CSS/JavaScript — no framework. Chosen for bundle size and simplicity given the modest UI surface (map + search + filters + ratings).
@@ -142,7 +112,7 @@ A map of public water fountains with information about fountain conditions lets 
 **Security:**
 - CORS restricted to `fountainsforall.urbanfreerunners.com` via `ALLOWED_ORIGIN` env var in `wrangler.toml`
 - Security response headers served by Cloudflare Pages (`_headers`): `X-Frame-Options`, `X-Content-Type-Options`, `Referrer-Policy`, `Permissions-Policy`
-- WAF rate-limiting rule: 4 POST req / 10 sec per IP on `drinking-fountains-api.urbanfreerunners.com` (CF Zone Ruleset API, `http_ratelimit` phase)
+- WAF rate-limiting rule
 
 **Logging:**
 - Ephemeral: structured JSON logs on all endpoints, viewable via `wrangler tail`
@@ -152,13 +122,30 @@ A map of public water fountains with information about fountain conditions lets 
 - CF D1 Time Travel — automatic point-in-time restore, 30-day retention, no setup required
 - Daily SQL export to R2 bucket `drinking-fountains-db-backups` via GitHub Actions (`.github/workflows/db-backup.yml`)
 
-**Data Sources:**
-- [Seattle City GIS Drinking Fountain dataset](https://data-seattlecitygis.opendata.arcgis.com/datasets/SeattleCityGIS::drinking-fountain-1/) (ArcGIS REST API) — 212 active fountains. Authoritative for park fountains; location data is reliable but `CURRENT_STATUS` field is largely unmaintained.
-- [OpenStreetMap](https://www.openstreetmap.org/) via the [Overpass API](https://wiki.openstreetmap.org/wiki/Overpass_API) — 456 nodes tagged `amenity=drinking_water` in the Seattle/Bellevue bounding box. Broader coverage (includes non-park fountains) but quality varies by contributor activity.
+## License and Terms Audit
 
-Upstream data is fetched and synced into D1 manually using `npm run sync` (see Sync section below). The browser never hits ArcGIS or Overpass directly.
+Audited June 2026.
 
-**Coverage area:** Seattle and Bellevue, Washington (bounding box `47.3,-122.5,47.8,-122.1`). 576 total fountains after deduplication (92 matched across sources within 30m).
+| Component | License / Terms | Attribution Required | Share-Alike | Commercial Use |
+|---|---|---|---|---|
+| Leaflet.js | BSD 2-Clause | No (notice embedded in JS file) | No | Yes |
+| OpenStreetMap data | ODbL 1.0 | Yes — "© OpenStreetMap contributors" on map | Derivative databases only | Yes |
+| Overpass API | FOSSGIS public instance usage policy | No | No | Discouraged on public instance |
+| Nominatim | ODbL 1.0 (data) + OSMF usage policy | Yes (ODbL) | No | Yes, with caveats |
+| Seattle City GIS | No formal license; public domain de facto | Recommended | No | Yes |
+| Cloudflare Pages / Workers / D1 / Access | Cloudflare Developer Platform Terms | No | No | Yes (free tier, no restriction) |
+
+### Notes
+
+**OpenStreetMap data (ODbL 1.0):** The share-alike clause applies only to redistributed derivative databases — it does not reach the app's own data (ratings, reports, device IDs). A "Produced Work" such as this web app may be licensed independently. Attribution must be visible in the map UI.
+
+**Overpass API:** The FOSSGIS public instance policy flags apps that rely on it as a backend for end users as a problematic use case. This project addresses that by querying Overpass only during `npm run sync` (manual/periodic server-side seeding), never at user page load. `sync.js` sets a `User-Agent` header identifying the app.
+
+**Nominatim:** The public instance enforces a hard 1 request/second cap across all users of an app, with no autocomplete or bulk geocoding permitted. Geocoding calls are made client-side, so the browser's `Referer` header (your domain) satisfies the identification requirement automatically. Results are not currently cached — acceptable at pilot scale, worth revisiting if usage grows.
+
+**Seattle City GIS:** No formal open license is attached to the dataset. It is published on the City's open data portal under Seattle's Open Data Policy (Executive Order 2016-01), which mandates open access. The dataset metadata lists "City of Seattle, Seattle Parks and Recreation" as the expected credit. Attribution is not legally enforceable but is recommended practice.
+
+**Cloudflare free tier limits:** Workers 100k requests/day; D1 50M rows read/day, 100k rows written/day, 5 GB storage; Access 50 seats. All well within limits at current scale.
 
 ## Fountain Identity
 
