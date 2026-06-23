@@ -26,6 +26,7 @@
   var myNotFoundReports = {}; // fountainId -> true
   var adminPin = null;
   var pilotMode = false;
+  var pilotToken = null;
   var REQUEST_ACCESS_URL = 'https://docs.google.com/forms/d/e/1FAIpQLSct5j7wwDKQetU40e9zEkbe-7Y6GoZ4iV6cPy2ZmP09iH-NgA/viewform?usp=publish-editor';
 
   var map = L.map("map", {
@@ -478,15 +479,30 @@
       });
   }
 
+  function pilotHeaders() {
+    var h = { "Content-Type": "application/json" };
+    if (pilotToken) h["X-Pilot-Token"] = pilotToken;
+    return h;
+  }
+
+  function handlePilotUnauthorized() {
+    showError("Pilot session expired. Please re-enter your pilot code.");
+    deactivatePilotMode();
+  }
+
   function submitAttribute(fountainId, attribute, value) {
     if (!API_BASE) return;
     fetch(API_BASE + "/fountains/" + fountainId + "/attributes", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: pilotHeaders(),
       body: JSON.stringify({ device_id: deviceId, attribute: attribute, value: value }),
     })
-      .then(function (res) { return res.json(); })
+      .then(function (res) {
+        if (res.status === 401) { handlePilotUnauthorized(); return null; }
+        return res.json();
+      })
       .then(function (data) {
+        if (!data) return;
         if (data.error) {
           showError("Update failed: " + data.error);
           return;
@@ -507,11 +523,15 @@
     if (!API_BASE) return;
     fetch(API_BASE + "/fountains/" + fountainId + "/report", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: pilotHeaders(),
       body: JSON.stringify({ device_id: deviceId, status: status }),
     })
-      .then(function (res) { return res.json(); })
+      .then(function (res) {
+        if (res.status === 401) { handlePilotUnauthorized(); return null; }
+        return res.json();
+      })
       .then(function (data) {
+        if (!data) return;
         if (data.error) {
           showError("Report failed: " + data.error);
           return;
@@ -537,13 +557,18 @@
     var body = adminToken
       ? { admin_token: adminToken }
       : { device_id: deviceId };
+    var headers = adminToken ? { "Content-Type": "application/json" } : pilotHeaders();
     fetch(API_BASE + "/fountains/" + fountainId + "/not-found", {
       method: method,
-      headers: { "Content-Type": "application/json" },
+      headers: headers,
       body: JSON.stringify(body),
     })
-      .then(function (res) { return res.json(); })
+      .then(function (res) {
+        if (res.status === 401) { handlePilotUnauthorized(); return null; }
+        return res.json();
+      })
       .then(function (data) {
+        if (!data) return;
         if (data.error) {
           showError("Failed: " + data.error);
           return;
@@ -569,11 +594,15 @@
     var method = isUnrating ? "DELETE" : "POST";
     fetch(API_BASE + "/fountains/" + fountainId + "/rating", {
       method: method,
-      headers: { "Content-Type": "application/json" },
+      headers: pilotHeaders(),
       body: JSON.stringify({ device_id: deviceId, score: score }),
     })
-      .then(function (res) { return res.json(); })
+      .then(function (res) {
+        if (res.status === 401) { handlePilotUnauthorized(); return null; }
+        return res.json();
+      })
       .then(function (data) {
+        if (!data) return;
         if (data.error) {
           showError("Rating failed: " + data.error);
           return;
@@ -1053,9 +1082,21 @@
   });
 
   var PILOT_SESSION_KEY = "pilot_unlocked";
+  var PILOT_TOKEN_KEY = "pilot_token";
 
   function isPilotUnlocked() {
     return sessionStorage.getItem(PILOT_SESSION_KEY) === "1";
+  }
+
+  function deactivatePilotMode() {
+    pilotMode = false;
+    pilotToken = null;
+    sessionStorage.removeItem(PILOT_SESSION_KEY);
+    sessionStorage.removeItem(PILOT_TOKEN_KEY);
+    powerUserBtn.classList.add("hidden");
+    var banner = document.getElementById("request-access-banner");
+    if (banner) banner.classList.remove("hidden");
+    renderAll();
   }
 
   function activatePilotMode() {
@@ -1101,6 +1142,8 @@
         pilotSubmitBtn.textContent = "Unlock";
         if (r.ok) {
           sessionStorage.setItem(PILOT_SESSION_KEY, "1");
+          pilotToken = r.data.token;
+          sessionStorage.setItem(PILOT_TOKEN_KEY, pilotToken);
           closePilotModal();
           activatePilotMode();
         } else {
@@ -1134,6 +1177,7 @@
 
   function initPilotMode() {
     if (isPilotUnlocked()) {
+      pilotToken = sessionStorage.getItem(PILOT_TOKEN_KEY);
       activatePilotMode();
     } else {
       var banner = document.getElementById("request-access-banner");

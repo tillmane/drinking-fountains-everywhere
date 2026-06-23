@@ -290,6 +290,7 @@ html, body {
   background: #e8f0fe;
   color: #1a1a1a;
   font-size: 15px;
+  line-height: 1.8;
   padding: 7px 14px;
   text-align: center;
   z-index: 999;
@@ -317,6 +318,10 @@ html, body {
   font-size: inherit;
   padding: 0;
   cursor: pointer;
+  text-decoration: none;
+}
+
+.banner-btn:hover {
   text-decoration: underline;
 }
 
@@ -822,6 +827,7 @@ html, body {
 
 /* ─── PIN modal ────────────────────────────────────────────── */
 
+#pilot-modal,
 #pin-modal {
   position: fixed;
   inset: 0;
@@ -832,6 +838,7 @@ html, body {
   justify-content: center;
 }
 
+#pilot-modal.hidden,
 #pin-modal.hidden {
   display: none;
 }
@@ -853,6 +860,7 @@ html, body {
   color: #1a1a1a;
 }
 
+#pilot-input,
 #pin-input {
   width: 100%;
   padding: 10px 12px;
@@ -865,16 +873,19 @@ html, body {
   transition: border-color 0.15s;
 }
 
+#pilot-input:focus,
 #pin-input:focus {
   border-color: #1a73e8;
 }
 
+#pilot-error,
 #pin-error {
   font-size: 13px;
   color: #c62828;
   margin-top: -4px;
 }
 
+#pilot-error.hidden,
 #pin-error.hidden {
   display: none;
 }

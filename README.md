@@ -181,7 +181,22 @@ All changes are reviewed locally before being pushed to `main`. Pushing to `main
 
 **Simulating pilot mode locally:**
 
-The app is publicly accessible. Click "Enter it here" in the banner and enter the pilot PIN to unlock write mode. This works the same locally as in production — no special setup needed.
+The app is publicly accessible. Click "click here" in the banner and enter the pilot PIN to unlock write mode — this works the same locally as in production.
+
+To skip the modal and activate pilot mode directly from the DevTools console (note: write requests will be rejected by the Worker without a valid token — use the normal PIN flow to get a real session):
+
+```javascript
+sessionStorage.setItem("pilot_unlocked", "1");
+location.reload();
+```
+
+To return to anonymous read-only mode:
+
+```javascript
+sessionStorage.removeItem("pilot_unlocked");
+sessionStorage.removeItem("pilot_token");
+location.reload();
+```
 
 **Worker changes:**
 1. Make changes to `worker/index.js`

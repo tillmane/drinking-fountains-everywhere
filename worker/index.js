@@ -4,8 +4,33 @@ function corsHeaders(allowedOrigin, requestOrigin) {
   return {
     "Access-Control-Allow-Origin": origin,
     "Access-Control-Allow-Methods": "GET, POST, DELETE, OPTIONS",
-    "Access-Control-Allow-Headers": "Content-Type",
+    "Access-Control-Allow-Headers": "Content-Type, X-Pilot-Token",
   };
+}
+
+async function generatePilotToken(pin) {
+  const enc = new TextEncoder();
+  const key = await crypto.subtle.importKey(
+    "raw", enc.encode(pin),
+    { name: "HMAC", hash: "SHA-256" },
+    false, ["sign"]
+  );
+  const sig = await crypto.subtle.sign("HMAC", key, enc.encode("pilot-access"));
+  return Array.from(new Uint8Array(sig)).map(b => b.toString(16).padStart(2, "0")).join("");
+}
+
+async function verifyPilotToken(token, env) {
+  if (!token || !env.PILOT_PIN) return false;
+  const expected = await generatePilotToken(env.PILOT_PIN);
+  return token === expected;
+}
+
+async function requirePilotToken(request, env, cors) {
+  const token = request.headers.get("X-Pilot-Token");
+  if (!await verifyPilotToken(token, env)) {
+    return err("Unauthorized", 401, cors);
+  }
+  return null;
 }
 
 function json(data, status, cors) {
@@ -74,7 +99,8 @@ async function handlePilotVerify(request, env, cors) {
   if (!env.PILOT_PIN || pin !== env.PILOT_PIN) {
     return err("Invalid PIN", 401, cors);
   }
-  return json({ ok: true }, 200, cors);
+  const token = await generatePilotToken(pin);
+  return json({ ok: true, token }, 200, cors);
 }
 
 async function handleGetFountains(db, cors) {
@@ -199,7 +225,9 @@ async function handleGetRatings(db, fountainId, cors) {
   }
 }
 
-async function handlePostRating(db, fountainId, request, cors) {
+async function handlePostRating(db, fountainId, request, env, cors) {
+  const authErr = await requirePilotToken(request, env, cors);
+  if (authErr) return authErr;
   const t0 = Date.now();
   let devicePrefix = "unknown";
   try {
@@ -273,7 +301,9 @@ async function handlePostRating(db, fountainId, request, cors) {
   }
 }
 
-async function handleDeleteRating(db, fountainId, request, cors) {
+async function handleDeleteRating(db, fountainId, request, env, cors) {
+  const authErr = await requirePilotToken(request, env, cors);
+  if (authErr) return authErr;
   const t0 = Date.now();
   let devicePrefix = "unknown";
   try {
@@ -326,7 +356,9 @@ async function handleDeleteRating(db, fountainId, request, cors) {
   }
 }
 
-async function handlePostReport(db, fountainId, request, cors) {
+async function handlePostReport(db, fountainId, request, env, cors) {
+  const authErr = await requirePilotToken(request, env, cors);
+  if (authErr) return authErr;
   const t0 = Date.now();
   let devicePrefix = "unknown";
   try {
@@ -399,7 +431,9 @@ async function handlePostReport(db, fountainId, request, cors) {
   }
 }
 
-async function handlePostAttributes(db, fountainId, request, cors) {
+async function handlePostAttributes(db, fountainId, request, env, cors) {
+  const authErr = await requirePilotToken(request, env, cors);
+  if (authErr) return authErr;
   const t0 = Date.now();
   let devicePrefix = "unknown";
   try {
@@ -472,6 +506,8 @@ async function handlePostAttributes(db, fountainId, request, cors) {
 }
 
 async function handlePostNotFound(db, fountainId, request, env, cors) {
+  const authErr = await requirePilotToken(request, env, cors);
+  if (authErr) return authErr;
   const t0 = Date.now();
   let devicePrefix = "unknown";
   try {
@@ -533,6 +569,11 @@ async function handleDeleteNotFound(db, fountainId, request, env, cors) {
     const { device_id, admin_token } = body;
 
     const isAdmin = env.ADMIN_PIN && admin_token === env.ADMIN_PIN;
+
+    if (!isAdmin) {
+      const authErr = await requirePilotToken(request, env, cors);
+      if (authErr) return authErr;
+    }
 
     if (isAdmin) {
       await db
@@ -604,20 +645,20 @@ export default {
 
     const ratingMatch = url.pathname.match(/^\/fountains\/(\d+)\/rating$/);
     if (ratingMatch && request.method === "POST") {
-      return handlePostRating(env.DB, parseInt(ratingMatch[1]), request, cors);
+      return handlePostRating(env.DB, parseInt(ratingMatch[1]), request, env, cors);
     }
     if (ratingMatch && request.method === "DELETE") {
-      return handleDeleteRating(env.DB, parseInt(ratingMatch[1]), request, cors);
+      return handleDeleteRating(env.DB, parseInt(ratingMatch[1]), request, env, cors);
     }
 
     const reportMatch = url.pathname.match(/^\/fountains\/(\d+)\/report$/);
     if (reportMatch && request.method === "POST") {
-      return handlePostReport(env.DB, parseInt(reportMatch[1]), request, cors);
+      return handlePostReport(env.DB, parseInt(reportMatch[1]), request, env, cors);
     }
 
     const attrMatch = url.pathname.match(/^\/fountains\/(\d+)\/attributes$/);
     if (attrMatch && request.method === "POST") {
-      return handlePostAttributes(env.DB, parseInt(attrMatch[1]), request, cors);
+      return handlePostAttributes(env.DB, parseInt(attrMatch[1]), request, env, cors);
     }
 
     const nfMatch = url.pathname.match(/^\/fountains\/(\d+)\/not-found$/);
