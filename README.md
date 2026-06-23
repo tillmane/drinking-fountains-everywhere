@@ -179,21 +179,9 @@ All changes are reviewed locally before being pushed to `main`. Pushing to `main
 3. Open `http://localhost:8080` in the browser and review against live production data
 4. When satisfied: commit and push to `main` → Cloudflare Pages auto-deploys
 
-**Simulating authenticated (pilot) mode locally:**
+**Simulating pilot mode locally:**
 
-`localhost:8080` has no Cloudflare Access cookie, so the app defaults to read-only mode. To test the full write UI, paste this in the DevTools console and reload:
-
-```javascript
-document.cookie = "CF_Authorization=local-dev; path=/";
-location.reload();
-```
-
-To return to read-only mode:
-
-```javascript
-document.cookie = "CF_Authorization=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/";
-location.reload();
-```
+The app is publicly accessible. Click "Enter it here" in the banner and enter the pilot PIN to unlock write mode. This works the same locally as in production — no special setup needed.
 
 **Worker changes:**
 1. Make changes to `worker/index.js`

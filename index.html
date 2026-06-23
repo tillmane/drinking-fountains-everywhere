@@ -110,6 +110,18 @@
     </div>
   </div>
 
+  <div id="pilot-modal" class="hidden">
+    <div id="pin-modal-box">
+      <div id="pin-modal-title">Pilot Access</div>
+      <input id="pilot-input" type="password" maxlength="32" autocomplete="off" placeholder="Enter pilot code">
+      <div id="pilot-error" class="hidden">Incorrect code</div>
+      <div id="pin-modal-actions">
+        <button id="pilot-cancel-btn">Cancel</button>
+        <button id="pilot-submit-btn">Unlock</button>
+      </div>
+    </div>
+  </div>
+
   <div id="pin-modal" class="hidden">
     <div id="pin-modal-box">
       <div id="pin-modal-title">Admin PIN</div>
@@ -123,7 +135,7 @@
   </div>
 
   <div id="request-access-banner" class="hidden">
-    Fountains for All is currently in Pilot mode. Want to contribute ratings and reports, and provide feedback? <a id="request-access-link" href="https://docs.google.com/forms/d/e/1FAIpQLSct5j7wwDKQetU40e9zEkbe-7Y6GoZ4iV6cPy2ZmP09iH-NgA/viewform?usp=publish-editor" target="_blank" rel="noopener">Request pilot access</a>
+    Have a pilot code? <button id="pilot-unlock-btn" class="banner-btn">Enter it here</button> to rate fountains and submit reports.
   </div>
 
   <div id="map"></div>

@@ -33,7 +33,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - Fountain data from two sources (City GIS + OSM) is deduplicated and stored in D1 via `fountain_sources` table. Matching by proximity within 30 meters. Full upstream JSON is stored in `fountain_sources.source_data`.
 - Upstream data is synced manually (not at page load) using `npm run sync`. Run this monthly or when source data changes (new fountains, seasonal shutoffs, OBJECTID drift).
 - Anonymous device IDs (`localStorage`) identify users for ratings and reports — no accounts.
-- Admin mode requires a PIN verified by the Worker (`POST /admin/verify`). PIN stored in `sessionStorage` for the session; also held in `adminPin` module variable for use in admin API calls.
+- Pilot mode (ratings/reports/attributes) is unlocked by a PIN verified via `POST /pilot/verify`. Stored in `sessionStorage` as `pilot_unlocked`. PIN is `PILOT_PIN` env var in Worker.
+- Admin mode requires a separate PIN verified via `POST /admin/verify`. PIN stored in `sessionStorage` as `admin_unlocked`; also held in `adminPin` module variable for use in admin API calls.
 - `fountainIndex` is a client-side map keyed by both fountain `id` (integer) and `"source_type:source_id"` strings, populated from `GET /fountains`. `fountainList` is the canonical ordered array.
 - Leaflet markers store `marker._fountainId` (integer) for surgical icon updates without full re-render.
 - `renderAll()` is used when fountain visibility changes (report off, not found); `updateMarkerForFountain()` for icon-only updates (rating changes).

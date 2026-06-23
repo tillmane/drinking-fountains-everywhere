@@ -309,6 +309,17 @@ html, body {
   text-decoration: underline;
 }
 
+.banner-btn {
+  background: none;
+  border: none;
+  color: #1a73e8;
+  font-weight: 500;
+  font-size: inherit;
+  padding: 0;
+  cursor: pointer;
+  text-decoration: underline;
+}
+
 /* ─── Map ──────────────────────────────────────────────────── */
 
 #map {

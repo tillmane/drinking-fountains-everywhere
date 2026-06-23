@@ -1052,26 +1052,96 @@
     legendToggle.textContent = "▸";
   });
 
-  function detectPilotMode() {
-    // CF Access sets CF_Authorization as a non-HttpOnly cookie; its presence means the
-    // user authenticated successfully against the email allowlist.
-    var hasCfAuth = document.cookie.split(';').some(function (c) {
-      return c.trim().startsWith('CF_Authorization=');
-    });
-    pilotMode = hasCfAuth;
-    if (pilotMode) {
-      powerUserBtn.classList.remove('hidden');
+  var PILOT_SESSION_KEY = "pilot_unlocked";
+
+  function isPilotUnlocked() {
+    return sessionStorage.getItem(PILOT_SESSION_KEY) === "1";
+  }
+
+  function activatePilotMode() {
+    pilotMode = true;
+    powerUserBtn.classList.remove("hidden");
+    var banner = document.getElementById("request-access-banner");
+    if (banner) banner.classList.add("hidden");
+    renderAll();
+  }
+
+  var pilotModal = document.getElementById("pilot-modal");
+  var pilotInput = document.getElementById("pilot-input");
+  var pilotError = document.getElementById("pilot-error");
+  var pilotSubmitBtn = document.getElementById("pilot-submit-btn");
+  var pilotCancelBtn = document.getElementById("pilot-cancel-btn");
+
+  function openPilotModal() {
+    pilotInput.value = "";
+    pilotError.classList.add("hidden");
+    pilotModal.classList.remove("hidden");
+    pilotInput.focus();
+  }
+
+  function closePilotModal() {
+    pilotModal.classList.add("hidden");
+    pilotInput.value = "";
+    pilotError.classList.add("hidden");
+  }
+
+  function submitPilotPin() {
+    var pin = pilotInput.value.trim();
+    if (!pin) return;
+    pilotSubmitBtn.disabled = true;
+    pilotSubmitBtn.textContent = "Checking…";
+    fetch(API_BASE + "/pilot/verify", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ pin: pin }),
+    })
+      .then(function (res) { return res.json().then(function (d) { return { ok: res.ok, data: d }; }); })
+      .then(function (r) {
+        pilotSubmitBtn.disabled = false;
+        pilotSubmitBtn.textContent = "Unlock";
+        if (r.ok) {
+          sessionStorage.setItem(PILOT_SESSION_KEY, "1");
+          closePilotModal();
+          activatePilotMode();
+        } else {
+          pilotError.classList.remove("hidden");
+          pilotInput.value = "";
+          pilotInput.focus();
+        }
+      })
+      .catch(function () {
+        pilotSubmitBtn.disabled = false;
+        pilotSubmitBtn.textContent = "Unlock";
+        pilotError.textContent = "Request failed. Try again.";
+        pilotError.classList.remove("hidden");
+      });
+  }
+
+  pilotSubmitBtn.addEventListener("click", submitPilotPin);
+  pilotCancelBtn.addEventListener("click", closePilotModal);
+  pilotInput.addEventListener("keydown", function (e) {
+    if (e.key === "Enter") submitPilotPin();
+    if (e.key === "Escape") closePilotModal();
+  });
+  pilotModal.addEventListener("click", function (e) {
+    if (e.target === pilotModal) closePilotModal();
+  });
+
+  var pilotUnlockBtn = document.getElementById("pilot-unlock-btn");
+  if (pilotUnlockBtn) {
+    pilotUnlockBtn.addEventListener("click", openPilotModal);
+  }
+
+  function initPilotMode() {
+    if (isPilotUnlocked()) {
+      activatePilotMode();
     } else {
-      var banner = document.getElementById('request-access-banner');
-      if (banner) {
-        banner.classList.remove('hidden');
-        var bannerLink = document.getElementById('request-access-link');
-        if (bannerLink) bannerLink.href = REQUEST_ACCESS_URL;
-      }
+      var banner = document.getElementById("request-access-banner");
+      if (banner) banner.classList.remove("hidden");
     }
   }
 
-  detectPilotMode();
+  initPilotMode();
   fetchFountains();
   preloadLocation();
 })();

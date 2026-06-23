@@ -60,6 +60,23 @@ async function handleAdminVerify(request, env, cors) {
   return json({ ok: true }, 200, cors);
 }
 
+async function handlePilotVerify(request, env, cors) {
+  let body;
+  try {
+    body = await request.json();
+  } catch {
+    return err("Invalid JSON", 400, cors);
+  }
+  const { pin } = body;
+  if (typeof pin !== "string" || pin.length === 0) {
+    return err("Invalid PIN", 401, cors);
+  }
+  if (!env.PILOT_PIN || pin !== env.PILOT_PIN) {
+    return err("Invalid PIN", 401, cors);
+  }
+  return json({ ok: true }, 200, cors);
+}
+
 async function handleGetFountains(db, cors) {
   const t0 = Date.now();
   try {
@@ -570,6 +587,10 @@ export default {
 
     if (url.pathname === "/admin/verify" && request.method === "POST") {
       return handleAdminVerify(request, env, cors);
+    }
+
+    if (url.pathname === "/pilot/verify" && request.method === "POST") {
+      return handlePilotVerify(request, env, cors);
     }
 
     if (url.pathname === "/fountains" && request.method === "GET") {
