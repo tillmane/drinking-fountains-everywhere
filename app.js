@@ -859,7 +859,6 @@
     });
   });
 
-  var powerUserBtn = document.getElementById("power-user-btn");
   var layerControl = document.getElementById("layer-control");
   var legendAdminRow = document.querySelector(".legend-admin-row");
   var confirmModal = document.getElementById("confirm-modal");
@@ -903,7 +902,6 @@
 
   function activateAdminMode() {
     powerUserMode = true;
-    powerUserBtn.classList.add("active");
     layerControl.classList.remove("hidden");
     legendAdminRow.classList.remove("hidden");
     updateRatingCounts();
@@ -912,7 +910,6 @@
 
   function deactivateAdminMode() {
     powerUserMode = false;
-    powerUserBtn.classList.remove("active");
     layerControl.classList.add("hidden");
     legendAdminRow.classList.add("hidden");
     if (layerOptions.ratingFilter) {
@@ -968,18 +965,6 @@
         pinError.classList.remove("hidden");
       });
   }
-
-  powerUserBtn.addEventListener("click", function () {
-    if (powerUserMode) {
-      deactivateAdminMode();
-      return;
-    }
-    if (isAdminUnlocked()) {
-      activateAdminMode();
-      return;
-    }
-    openPinModal();
-  });
 
   pinSubmitBtn.addEventListener("click", submitPin);
   pinCancelBtn.addEventListener("click", closePinModal);
@@ -1093,7 +1078,6 @@
     pilotToken = null;
     sessionStorage.removeItem(PILOT_SESSION_KEY);
     sessionStorage.removeItem(PILOT_TOKEN_KEY);
-    powerUserBtn.classList.add("hidden");
     var banner = document.getElementById("request-access-banner");
     if (banner) banner.classList.remove("hidden");
     renderAll();
@@ -1101,7 +1085,6 @@
 
   function activatePilotMode() {
     pilotMode = true;
-    powerUserBtn.classList.remove("hidden");
     var banner = document.getElementById("request-access-banner");
     if (banner) banner.classList.add("hidden");
     renderAll();
@@ -1184,6 +1167,101 @@
       if (banner) banner.classList.remove("hidden");
     }
   }
+
+  // ─── Hamburger menu ───────────────────────────────────────────
+
+  var menuDrawer = document.getElementById("menu-drawer");
+  var menuOverlay = document.getElementById("menu-overlay");
+  var hamburgerBtn = document.getElementById("hamburger-btn");
+  var menuCloseBtn = document.getElementById("menu-close-btn");
+
+  function openMenu() {
+    menuDrawer.classList.add("open");
+    menuOverlay.classList.add("open");
+  }
+
+  function closeMenu() {
+    menuDrawer.classList.remove("open");
+    menuOverlay.classList.remove("open");
+  }
+
+  hamburgerBtn.addEventListener("click", openMenu);
+  menuCloseBtn.addEventListener("click", closeMenu);
+  menuOverlay.addEventListener("click", closeMenu);
+
+  // ─── Content modal ─────────────────────────────────────────────
+
+  var contentModal = document.getElementById("content-modal");
+  var contentModalTitle = document.getElementById("content-modal-title");
+  var contentModalBody = document.getElementById("content-modal-body");
+  var contentModalClose = document.getElementById("content-modal-close");
+
+  var MODAL_TITLES = {
+    about:     "About Fountains For All",
+    terms:     "Terms of Use",
+    privacy:   "Privacy Policy",
+    copyright: "Copyright",
+  };
+
+  var contentCache = {};
+
+  function openContentModal(key) {
+    var title = MODAL_TITLES[key];
+    if (!title) return;
+    contentModalTitle.textContent = title;
+    contentModalBody.scrollTop = 0;
+    history.replaceState(null, "", "#" + key);
+    if (contentCache[key]) {
+      contentModalBody.innerHTML = contentCache[key];
+      contentModal.classList.remove("hidden");
+      return;
+    }
+    contentModalBody.innerHTML = '<p style="color:#aaa;font-size:14px">Loading…</p>';
+    contentModal.classList.remove("hidden");
+    fetch("page_content/" + key + ".html")
+      .then(function (res) { return res.text(); })
+      .then(function (html) {
+        contentCache[key] = html;
+        contentModalBody.innerHTML = html;
+      })
+      .catch(function () {
+        contentModalBody.innerHTML = '<p style="color:#c62828">Failed to load content.</p>';
+      });
+  }
+
+  function closeContentModal() {
+    contentModal.classList.add("hidden");
+    history.replaceState(null, "", location.pathname);
+  }
+
+  contentModalClose.addEventListener("click", closeContentModal);
+  contentModal.addEventListener("click", function (e) {
+    if (e.target === contentModal) closeContentModal();
+  });
+
+  document.querySelectorAll(".menu-item[data-modal]").forEach(function (btn) {
+    btn.addEventListener("click", function () {
+      closeMenu();
+      openContentModal(btn.dataset.modal);
+    });
+  });
+
+  var initialHash = location.hash.replace("#", "");
+  if (MODAL_TITLES[initialHash]) {
+    openContentModal(initialHash);
+  }
+
+  var menuAdminBtn = document.getElementById("menu-admin-btn");
+  menuAdminBtn.addEventListener("click", function () {
+    closeMenu();
+    if (powerUserMode) {
+      deactivateAdminMode();
+    } else if (isAdminUnlocked()) {
+      activateAdminMode();
+    } else {
+      openPinModal();
+    }
+  });
 
   initPilotMode();
   fetchFountains();

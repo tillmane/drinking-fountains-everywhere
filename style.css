@@ -13,6 +13,258 @@ html, body {
   flex-direction: column;
 }
 
+/* ─── Hamburger menu drawer ────────────────────────────────── */
+
+#menu-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  z-index: 1500;
+  background: rgba(0,0,0,0.4);
+}
+
+#menu-overlay.open {
+  display: block;
+}
+
+#menu-drawer {
+  position: fixed;
+  top: 0;
+  left: 0;
+  bottom: 0;
+  width: 280px;
+  z-index: 1600;
+  background: #fff;
+  box-shadow: 4px 0 24px rgba(0,0,0,0.2);
+  display: flex;
+  flex-direction: column;
+  padding: 16px 0 24px;
+  transform: translateX(-100%);
+  transition: transform 0.25s ease;
+}
+
+#menu-drawer.open {
+  transform: translateX(0);
+}
+
+#menu-close-btn {
+  align-self: flex-end;
+  margin-right: 12px;
+  margin-bottom: 8px;
+  width: 36px;
+  height: 36px;
+  border: none;
+  background: none;
+  cursor: pointer;
+  color: #555;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 6px;
+  flex-shrink: 0;
+}
+
+#menu-close-btn:hover {
+  background: #f0f0f0;
+}
+
+#menu-nav {
+  display: flex;
+  flex-direction: column;
+}
+
+.menu-item {
+  padding: 13px 24px;
+  border: none;
+  background: none;
+  text-align: left;
+  font-size: 15px;
+  font-family: inherit;
+  color: #1a1a1a;
+  cursor: pointer;
+  font-weight: 500;
+  transition: background 0.12s;
+}
+
+.menu-item:hover {
+  background: #f5f5f5;
+}
+
+.menu-item-about {
+  font-size: 18px;
+  font-weight: 700;
+  padding-top: 16px;
+  padding-bottom: 16px;
+  white-space: nowrap;
+}
+
+.menu-divider {
+  border-top: 1px solid #eee;
+  margin: 8px 0;
+}
+
+/* ─── Content modal ────────────────────────────────────────── */
+
+#content-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 2000;
+  background: rgba(0,0,0,0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+
+#content-modal.hidden {
+  display: none;
+}
+
+#content-modal-box {
+  background: #fff;
+  border-radius: 12px;
+  width: 100%;
+  max-width: 560px;
+  max-height: 80vh;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.25);
+  overflow: hidden;
+}
+
+#content-modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 20px 14px;
+  border-bottom: 1px solid #eee;
+  flex-shrink: 0;
+}
+
+#content-modal-title {
+  font-size: 16px;
+  font-weight: 600;
+  color: #1a1a1a;
+}
+
+#content-modal-close {
+  width: 32px;
+  height: 32px;
+  border: none;
+  background: none;
+  cursor: pointer;
+  color: #888;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 6px;
+  flex-shrink: 0;
+  padding: 0;
+}
+
+#content-modal-close:hover {
+  background: #f0f0f0;
+  color: #333;
+}
+
+#content-modal-body {
+  padding: 20px 24px 24px;
+  overflow-y: auto;
+  font-size: 14px;
+  line-height: 1.65;
+  color: #333;
+}
+
+#content-modal-body h1 {
+  font-size: 18px;
+  font-weight: 700;
+  margin-bottom: 12px;
+  color: #1a1a1a;
+}
+
+#content-modal-body h2 {
+  font-size: 14px;
+  font-weight: 700;
+  margin-top: 18px;
+  margin-bottom: 6px;
+  color: #1a1a1a;
+}
+
+#content-modal-body p {
+  margin-bottom: 10px;
+}
+
+#content-modal-body ul {
+  margin: 6px 0 10px 20px;
+}
+
+#content-modal-body li {
+  margin-bottom: 4px;
+}
+
+#content-modal-body a {
+  color: #1a73e8;
+  text-decoration: none;
+}
+
+#content-modal-body a:hover {
+  text-decoration: underline;
+}
+
+#content-modal-body hr {
+  border: none;
+  border-top: 1px solid #ccc;
+  margin: 18px 0;
+}
+
+#content-modal-body em {
+  font-style: italic;
+  color: #555;
+}
+
+#content-modal-body strong {
+  font-weight: 600;
+  color: #1a1a1a;
+}
+
+.content-modal-cta,
+#content-modal-body a.content-modal-cta {
+  display:  inline-block;
+  margin-top: 1px;
+  padding: 4px 12px;
+  background: #1a73e8;
+  color: #fff;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.content-modal-cta:hover,
+#content-modal-body a.content-modal-cta:hover {
+  background: #1558c0;
+  color: #fff;
+  text-decoration: none;
+}
+
+.content-lede {
+  font-size: 16px;
+  font-weight: 500;
+  color: #1a1a1a;
+  line-height: 1.6;
+  margin-bottom: 16px;
+}
+
+#content-modal-body blockquote {
+  border: 2px solid #1a73e8;
+  background: #f0f4ff;
+  margin: 14px 0;
+  padding: 10px 16px;
+  border-radius: 6px;
+  color: #333;
+  text-align: center;
+}
+
 /* ─── Controls bar ─────────────────────────────────────────── */
 
 #controls-bar {
@@ -23,6 +275,25 @@ html, body {
   padding: 8px 12px;
   background: #4a4a4a;
   z-index: 1000;
+}
+
+#hamburger-btn {
+  flex-shrink: 0;
+  width: 40px;
+  height: 40px;
+  border-radius: 8px;
+  border: none;
+  background: rgba(255,255,255,0.15);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  transition: background 0.15s;
+}
+
+#hamburger-btn:hover {
+  background: rgba(255,255,255,0.25);
 }
 
 #locate-btn {
@@ -189,28 +460,6 @@ html, body {
   flex-shrink: 0;
 }
 
-#power-user-btn {
-  width: 40px;
-  height: 40px;
-  border-radius: 8px;
-  border: none;
-  background: rgba(255,255,255,0.15);
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: rgba(255,255,255,0.7);
-  transition: background 0.15s, color 0.15s;
-}
-
-#power-user-btn:hover {
-  background: rgba(255,255,255,0.25);
-}
-
-#power-user-btn.active {
-  background: #fff;
-  color: #4a4a4a;
-}
 
 /* ─── Legend (in controls bar) ─────────────────────────────── */
 
