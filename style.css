@@ -615,6 +615,34 @@ html, body {
   white-space: nowrap;
 }
 
+/* ─── Feedback CTA ──────────────────────────────────────────── */
+
+#feedback-btn {
+  position: fixed;
+  bottom: 20px;
+  left: 16px;
+  z-index: 1000;
+  background: #1a73e8;
+  color: #fff;
+  border: none;
+  border-radius: 20px;
+  padding: 8px 14px;
+  font-size: 13px;
+  font-family: inherit;
+  cursor: pointer;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
+  transition: background 0.15s, transform 0.1s;
+}
+
+#feedback-btn:hover {
+  background: #1557b0;
+  transform: translateY(-1px);
+}
+
+#feedback-btn:active {
+  transform: translateY(0);
+}
+
 /* ─── Layer control (admin floating panel) ─────────────────── */
 
 #layer-control {

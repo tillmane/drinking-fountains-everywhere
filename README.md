@@ -16,11 +16,22 @@ Access to clean water is a basic human right, yet even in urban areas with high 
 
 ## Release History
 
-### V3.0: Pilot Launch 
+### V3.0: Pilot Launch (pushed June 23, 2026)
 - Read Access for All
   - Allow anonymous users to be able to view the Pilot
   - Include an option to request Pilot access
-
+- Fix anonymous access while keeping pilot allow list
+- Tech stack and data source licensing audit (see License and Terms Audit section)
+- Additional Info Menu (hamburger icon)
+  - About
+  - Terms of Use
+  - Privacy Policy
+  - Copyright
+  - Admin Mode
+- Move admin button to menu
+- Add feedback CTA
+- Add usage reporting dashboard
+- Production monitoring of request traffic and storage size
 
 ### V2.4: A Simpler Rating Methodology (pushed June 14, 2026)
 - Bugs/Dumb Stuff
@@ -174,10 +185,12 @@ Upstream sources are matched to local fountains by **proximity within 30 meters*
 All changes are reviewed locally before being pushed to `main`. Pushing to `main` automatically deploys the frontend via Cloudflare Pages. Worker changes require a separate `npm run deploy`.
 
 **Frontend changes:**
-1. Make changes to `index.html`, `app.js`, or `style.css`
+1. Make changes to `index.html`, `app.js`, `style.css`, or files in `page_content/`
 2. `npm run serve` — starts a local server at `http://localhost:8080`
 3. Open `http://localhost:8080` in the browser and review against live production data
 4. When satisfied: commit and push to `main` → Cloudflare Pages auto-deploys
+
+> **Note:** The frontend and worker deploy independently. If a change requires both (e.g. a new API endpoint), push `main` first to deploy the frontend, then run `npm run deploy` for the worker. Forgetting the worker deploy will leave the two out of sync.
 
 **Simulating pilot mode locally:**
 
@@ -207,7 +220,7 @@ location.reload();
 
 ### Frontend (Cloudflare Pages)
 
-Connected to the `main` branch of this repo. Pushes to `main` trigger an automatic deploy. No build step — Pages serves static files from the repo root (`index.html`, `app.js`, `style.css`, `favicon.svg`, `_headers`).
+Connected to the `main` branch of this repo. Pushes to `main` trigger an automatic deploy. No build step — Pages serves static files from the repo root (`index.html`, `app.js`, `style.css`, `favicon.svg`, `_headers`) plus the `page_content/` directory, which holds the HTML content files for the hamburger menu modals (About, Terms of Use, Privacy Policy, Copyright).
 
 ### Worker (Cloudflare Workers + D1)
 

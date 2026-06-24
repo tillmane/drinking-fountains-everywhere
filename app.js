@@ -1080,6 +1080,8 @@
     sessionStorage.removeItem(PILOT_TOKEN_KEY);
     var banner = document.getElementById("request-access-banner");
     if (banner) banner.classList.remove("hidden");
+    var feedbackBtn = document.getElementById("feedback-btn");
+    if (feedbackBtn) feedbackBtn.classList.add("hidden");
     renderAll();
   }
 
@@ -1087,6 +1089,8 @@
     pilotMode = true;
     var banner = document.getElementById("request-access-banner");
     if (banner) banner.classList.add("hidden");
+    var feedbackBtn = document.getElementById("feedback-btn");
+    if (feedbackBtn) feedbackBtn.classList.remove("hidden");
     renderAll();
   }
 
@@ -1188,6 +1192,10 @@
   hamburgerBtn.addEventListener("click", openMenu);
   menuCloseBtn.addEventListener("click", closeMenu);
   menuOverlay.addEventListener("click", closeMenu);
+
+  document.getElementById("feedback-btn").addEventListener("click", function () {
+    window.open("https://tally.so/r/jag8Z9", "_blank", "noopener,noreferrer");
+  });
 
   // ─── Content modal ─────────────────────────────────────────────
 
