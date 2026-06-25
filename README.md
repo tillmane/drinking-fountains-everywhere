@@ -16,6 +16,23 @@ Access to clean water is a basic human right, yet even in urban areas with high 
 
 ## Release History
 
+### V3.1: Reporting on Reporting (pushed June 24, 2026)
+- UX Updates
+  - Change "Not Found" to "Not Found / Decommissioned" where decommissioned means elements of the fountain such as pedestal or cabinet still remain, but the fixtures (basin, spigot, handle, etc) are removed
+  - Add tool tips to Report Off and Not Found / Decommissioned buttons
+  - Make the size of the pin icons in the legend the same as those on the map
+- Contribution Reporting
+  - Create a contribution dashboard with the following reports
+    - \# of ratings
+    - \# of ratings/user or device id
+    - \# of unrated fountains rated
+    - \# of fountains rated vs reported off vs not found
+  - Include a timeframe selector with the following periods: past 24 hours, past 7 days (default), past 30 days, past 90 days
+  - Contribution dashboard is accessible via Admin mode
+    - Include a link to the dashboard at the top of the Admin panel
+    - Use a hash in the URL so that the dashboard can be opened via deep link
+    - When accessed via deep link, the dashboard still requires Admin PIN access if not already in Admin mode
+
 ### V3.0: Pilot Launch (pushed June 23, 2026)
 - Read Access for All
   - Allow anonymous users to be able to view the Pilot
