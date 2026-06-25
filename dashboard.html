@@ -1,0 +1,476 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Contribution Dashboard — Fountains For All</title>
+  <link rel="icon" type="image/svg+xml" href="favicon.svg">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: #f5f7fa;
+      color: #1a1a1a;
+      min-height: 100vh;
+    }
+
+    /* ─── PIN gate ──────────────────────────────────────────── */
+
+    #pin-gate {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.5);
+      z-index: 100;
+      align-items: center;
+      justify-content: center;
+    }
+
+    #pin-gate.visible {
+      display: flex;
+    }
+
+    #pin-box {
+      background: #fff;
+      border-radius: 12px;
+      padding: 28px 24px 24px;
+      width: 300px;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.2);
+    }
+
+    #pin-box h2 {
+      font-size: 17px;
+      font-weight: 600;
+      margin-bottom: 16px;
+    }
+
+    #pin-box input {
+      width: 100%;
+      padding: 10px 12px;
+      font-size: 15px;
+      border: 1px solid #ddd;
+      border-radius: 8px;
+      font-family: inherit;
+      margin-bottom: 8px;
+    }
+
+    #pin-gate-error {
+      font-size: 13px;
+      color: #c62828;
+      min-height: 18px;
+      margin-bottom: 12px;
+    }
+
+    #pin-box-actions {
+      display: flex;
+      gap: 8px;
+      justify-content: flex-end;
+    }
+
+    #pin-box-actions button {
+      padding: 8px 18px;
+      border-radius: 8px;
+      border: 1px solid #ddd;
+      font-size: 14px;
+      font-family: inherit;
+      cursor: pointer;
+      background: #fff;
+    }
+
+    #pin-submit-btn {
+      background: #2563eb !important;
+      color: #fff;
+      border-color: #2563eb !important;
+    }
+
+    /* ─── Header ────────────────────────────────────────────── */
+
+    header {
+      background: #1e40af;
+      color: #fff;
+      padding: 16px 24px;
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+
+    header a {
+      color: rgba(255,255,255,0.75);
+      text-decoration: none;
+      font-size: 13px;
+    }
+
+    header a:hover { color: #fff; }
+
+    header h1 {
+      font-size: 18px;
+      font-weight: 600;
+      flex: 1;
+    }
+
+    /* ─── Period selector ───────────────────────────────────── */
+
+    #period-bar {
+      background: #fff;
+      border-bottom: 1px solid #e5e7eb;
+      padding: 12px 24px;
+      display: flex;
+      gap: 8px;
+    }
+
+    .period-btn {
+      padding: 6px 14px;
+      border-radius: 20px;
+      border: 1px solid #ddd;
+      background: #fff;
+      font-size: 13px;
+      font-family: inherit;
+      cursor: pointer;
+      color: #555;
+      transition: background 0.12s, color 0.12s;
+    }
+
+    .period-btn:hover { background: #f0f4ff; color: #2563eb; }
+
+    .period-btn.active {
+      background: #2563eb;
+      color: #fff;
+      border-color: #2563eb;
+    }
+
+    /* ─── Summary cards ─────────────────────────────────────── */
+
+    #summary-cards {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 16px;
+      padding: 24px 24px 0;
+    }
+
+    .stat-card {
+      background: #fff;
+      border-radius: 10px;
+      padding: 18px 20px;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.07);
+    }
+
+    .stat-card .stat-value {
+      font-size: 32px;
+      font-weight: 700;
+      color: #1e40af;
+      line-height: 1;
+      margin-bottom: 6px;
+    }
+
+    .stat-card .stat-label {
+      font-size: 13px;
+      color: #666;
+    }
+
+    /* ─── Charts ────────────────────────────────────────────── */
+
+    #charts {
+      padding: 24px;
+      display: flex;
+      flex-direction: column;
+      gap: 24px;
+    }
+
+    .chart-card {
+      background: #fff;
+      border-radius: 10px;
+      padding: 20px;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.07);
+    }
+
+    .chart-card h2 {
+      font-size: 14px;
+      font-weight: 600;
+      color: #444;
+      margin-bottom: 16px;
+    }
+
+    .chart-wrap {
+      position: relative;
+      height: 220px;
+    }
+
+    /* ─── Loading / error ───────────────────────────────────── */
+
+    #status-msg {
+      padding: 40px 24px;
+      text-align: center;
+      color: #888;
+      font-size: 14px;
+    }
+
+    #content { display: none; }
+    #content.visible { display: block; }
+  </style>
+</head>
+<body>
+
+  <!-- PIN gate -->
+  <div id="pin-gate">
+    <div id="pin-box">
+      <h2>Admin PIN required</h2>
+      <input id="pin-input" type="password" inputmode="numeric" maxlength="16" autocomplete="off" placeholder="Enter PIN">
+      <div id="pin-gate-error"></div>
+      <div id="pin-box-actions">
+        <a href="index.html"><button type="button">Back to map</button></a>
+        <button type="button" id="pin-submit-btn">Unlock</button>
+      </div>
+    </div>
+  </div>
+
+  <header>
+    <a href="index.html">← Map</a>
+    <h1>Contribution Dashboard</h1>
+  </header>
+
+  <div id="period-bar">
+    <button class="period-btn" data-period="1d">Past 24h</button>
+    <button class="period-btn active" data-period="7d">Past 7 days</button>
+    <button class="period-btn" data-period="30d">Past 30 days</button>
+    <button class="period-btn" data-period="90d">Past 90 days</button>
+  </div>
+
+  <div id="status-msg">Loading…</div>
+
+  <div id="content">
+    <div id="summary-cards">
+      <div class="stat-card">
+        <div class="stat-value" id="stat-ratings">—</div>
+        <div class="stat-label">Ratings submitted</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-value" id="stat-avg">—</div>
+        <div class="stat-label">Avg ratings per device</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-value" id="stat-newly-rated">—</div>
+        <div class="stat-label">Previously-unrated fountains rated</div>
+      </div>
+    </div>
+
+    <div id="charts">
+      <div class="chart-card">
+        <h2>Contributions per day (ratings, off reports, not found)</h2>
+        <div class="chart-wrap"><canvas id="chart-reports"></canvas></div>
+      </div>
+      <div class="chart-card">
+        <h2>Avg ratings per device per day</h2>
+        <div class="chart-wrap"><canvas id="chart-avg"></canvas></div>
+      </div>
+      <div class="chart-card">
+        <h2>Previously-unrated fountains rated per day</h2>
+        <div class="chart-wrap"><canvas id="chart-newly-rated"></canvas></div>
+      </div>
+      <div class="chart-card">
+        <h2>Unique devices contributing per day</h2>
+        <div class="chart-wrap"><canvas id="chart-devices"></canvas></div>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"
+          integrity="sha384-NrKB+u6Ts6AtkIhwPixiKTzgSKNblyhlk0Sohlgar9UHUBzai/sgnNNWWd291xqt"
+          crossorigin="anonymous"></script>
+  <script>
+    (function () {
+      "use strict";
+
+      var API_BASE = "https://drinking-fountains-api.urbanfreerunners.com";
+      var ADMIN_SESSION_KEY = "admin_unlocked";
+      var adminToken = null;
+      var currentPeriod = "7d";
+
+      var pinGate    = document.getElementById("pin-gate");
+      var pinInput   = document.getElementById("pin-input");
+      var pinError   = document.getElementById("pin-gate-error");
+      var pinSubmit  = document.getElementById("pin-submit-btn");
+      var statusMsg  = document.getElementById("status-msg");
+      var content    = document.getElementById("content");
+
+      function showError(msg) {
+        statusMsg.textContent = msg;
+        statusMsg.style.display = "block";
+        content.classList.remove("visible");
+      }
+
+      // ── PIN gate ──────────────────────────────────────────────
+
+      function isAdminUnlocked() {
+        return sessionStorage.getItem(ADMIN_SESSION_KEY) === "1";
+      }
+
+      function submitPin() {
+        var pin = pinInput.value.trim();
+        if (!pin) return;
+        pinSubmit.disabled = true;
+        pinSubmit.textContent = "Checking…";
+        fetch(API_BASE + "/admin/verify", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ pin: pin }),
+        })
+          .then(function (res) { return res.json().then(function (d) { return { ok: res.ok, data: d }; }); })
+          .then(function (r) {
+            pinSubmit.disabled = false;
+            pinSubmit.textContent = "Unlock";
+            if (r.ok) {
+              sessionStorage.setItem(ADMIN_SESSION_KEY, "1");
+              sessionStorage.setItem("admin_token", r.data.token);
+              adminToken = r.data.token;
+              pinGate.classList.remove("visible");
+              loadData();
+            } else {
+              pinError.textContent = "Incorrect PIN";
+              pinInput.value = "";
+              pinInput.focus();
+            }
+          })
+          .catch(function () {
+            pinSubmit.disabled = false;
+            pinSubmit.textContent = "Unlock";
+            pinError.textContent = "Request failed. Try again.";
+          });
+      }
+
+      pinSubmit.addEventListener("click", submitPin);
+      pinInput.addEventListener("keydown", function (e) { if (e.key === "Enter") submitPin(); });
+
+      // ── Period selector ───────────────────────────────────────
+
+      document.querySelectorAll(".period-btn").forEach(function (btn) {
+        btn.addEventListener("click", function () {
+          document.querySelectorAll(".period-btn").forEach(function (b) { b.classList.remove("active"); });
+          btn.classList.add("active");
+          currentPeriod = btn.dataset.period;
+          loadData();
+        });
+      });
+
+      // ── Charts ────────────────────────────────────────────────
+
+      var BLUE   = "rgba(37,99,235,0.85)";
+      var ORANGE = "rgba(234,88,12,0.85)";
+      var RED    = "rgba(198,40,40,0.85)";
+      var GREEN  = "rgba(22,163,74,0.85)";
+      var PURPLE = "rgba(124,58,237,0.85)";
+
+      var chartReports    = null;
+      var chartAvg        = null;
+      var chartNewlyRated = null;
+      var chartDevices    = null;
+
+      function baseOpts(extraScaleY) {
+        return {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: { legend: { position: "bottom", labels: { boxWidth: 12, font: { size: 12 } } } },
+          scales: {
+            x: { grid: { display: false }, ticks: { font: { size: 11 }, maxRotation: 45 } },
+            y: Object.assign({ beginAtZero: true, ticks: { font: { size: 11 }, precision: 0 } }, extraScaleY || {}),
+          },
+        };
+      }
+
+      function buildLabels(series) {
+        return series.map(function (r) {
+          var d = new Date(r.day + "T00:00:00");
+          return d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+        });
+      }
+
+      function renderCharts(series) {
+        var labels     = buildLabels(series);
+        var ratings    =series.map(function (r) { return r.ratings; });
+        var offReports = series.map(function (r) { return r.off_reports; });
+        var nfReports  = series.map(function (r) { return r.not_found_reports; });
+        var avgPerDev  = series.map(function (r) { return r.avg_ratings_per_device; });
+        var newlyRated = series.map(function (r) { return r.newly_rated; });
+        var devices    = series.map(function (r) { return r.unique_devices; });
+
+        // Stacked bar: contributions by type per day
+        if (chartReports) chartReports.destroy();
+        chartReports = new Chart(document.getElementById("chart-reports"), {
+          type: "bar",
+          data: {
+            labels: labels,
+            datasets: [
+              { label: "Ratings",                    data: ratings,    backgroundColor: BLUE,   stack: "s" },
+              { label: "Reported off",               data: offReports, backgroundColor: ORANGE, stack: "s" },
+              { label: "Not found / decommissioned", data: nfReports,  backgroundColor: RED,    stack: "s" },
+            ],
+          },
+          options: baseOpts({ stacked: true }),
+        });
+
+        // Avg ratings per device
+        if (chartAvg) chartAvg.destroy();
+        chartAvg = new Chart(document.getElementById("chart-avg"), {
+          type: "bar",
+          data: { labels: labels, datasets: [ { label: "Avg ratings / device", data: avgPerDev, backgroundColor: BLUE } ] },
+          options: baseOpts({ ticks: { font: { size: 11 } } }),
+        });
+
+        // Newly-rated fountains
+        if (chartNewlyRated) chartNewlyRated.destroy();
+        chartNewlyRated = new Chart(document.getElementById("chart-newly-rated"), {
+          type: "bar",
+          data: { labels: labels, datasets: [ { label: "Newly rated fountains", data: newlyRated, backgroundColor: GREEN } ] },
+          options: baseOpts(),
+        });
+
+        // Unique devices
+        if (chartDevices) chartDevices.destroy();
+        chartDevices = new Chart(document.getElementById("chart-devices"), {
+          type: "bar",
+          data: { labels: labels, datasets: [ { label: "Unique devices", data: devices, backgroundColor: PURPLE } ] },
+          options: baseOpts(),
+        });
+      }
+
+      // ── Data load ─────────────────────────────────────────────
+
+      function loadData() {
+        statusMsg.textContent = "Loading…";
+        statusMsg.style.display = "block";
+        content.classList.remove("visible");
+
+        fetch(API_BASE + "/admin/contributions?period=" + currentPeriod, {
+          headers: { "X-Admin-Token": adminToken },
+        })
+          .then(function (res) { return res.json().then(function (d) { return { ok: res.ok, data: d }; }); })
+          .then(function (r) {
+            if (!r.ok) { showError("Failed to load data: " + (r.data.error || "unknown error")); return; }
+
+            var s = r.data.summary;
+            document.getElementById("stat-ratings").textContent      = s.total_ratings;
+            document.getElementById("stat-avg").textContent          = s.avg_ratings_per_device;
+            document.getElementById("stat-newly-rated").textContent  = s.newly_rated_fountains;
+
+            renderCharts(r.data.series);
+
+            statusMsg.style.display = "none";
+            content.classList.add("visible");
+          })
+          .catch(function () { showError("Request failed. Check your connection and try again."); });
+      }
+
+      // ── Init ──────────────────────────────────────────────────
+
+      var storedToken = sessionStorage.getItem("admin_token");
+      if (isAdminUnlocked() && storedToken) {
+        adminToken = storedToken;
+        loadData();
+      } else {
+        pinGate.classList.add("visible");
+        pinInput.focus();
+      }
+    })();
+  </script>
+</body>
+</html>

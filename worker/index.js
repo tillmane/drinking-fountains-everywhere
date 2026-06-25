@@ -4,7 +4,7 @@ function corsHeaders(allowedOrigin, requestOrigin) {
   return {
     "Access-Control-Allow-Origin": origin,
     "Access-Control-Allow-Methods": "GET, POST, DELETE, OPTIONS",
-    "Access-Control-Allow-Headers": "Content-Type, X-Pilot-Token",
+    "Access-Control-Allow-Headers": "Content-Type, X-Pilot-Token, X-Admin-Token",
   };
 }
 
@@ -22,6 +22,23 @@ async function generatePilotToken(pin) {
 async function verifyPilotToken(token, env) {
   if (!token || !env.PILOT_PIN) return false;
   const expected = await generatePilotToken(env.PILOT_PIN);
+  return token === expected;
+}
+
+async function generateAdminToken(pin) {
+  const enc = new TextEncoder();
+  const key = await crypto.subtle.importKey(
+    "raw", enc.encode(pin),
+    { name: "HMAC", hash: "SHA-256" },
+    false, ["sign"]
+  );
+  const sig = await crypto.subtle.sign("HMAC", key, enc.encode("admin-access"));
+  return Array.from(new Uint8Array(sig)).map(b => b.toString(16).padStart(2, "0")).join("");
+}
+
+async function verifyAdminToken(token, env) {
+  if (!token || !env.ADMIN_PIN) return false;
+  const expected = await generateAdminToken(env.ADMIN_PIN);
   return token === expected;
 }
 
@@ -82,7 +99,8 @@ async function handleAdminVerify(request, env, cors) {
   if (!env.ADMIN_PIN || pin !== env.ADMIN_PIN) {
     return err("Invalid PIN", 401, cors);
   }
-  return json({ ok: true }, 200, cors);
+  const token = await generateAdminToken(pin);
+  return json({ ok: true, token }, 200, cors);
 }
 
 async function handlePilotVerify(request, env, cors) {
@@ -568,7 +586,7 @@ async function handleDeleteNotFound(db, fountainId, request, env, cors) {
     try { body = await request.json(); } catch { return err("Invalid JSON", 400, cors); }
     const { device_id, admin_token } = body;
 
-    const isAdmin = env.ADMIN_PIN && admin_token === env.ADMIN_PIN;
+    const isAdmin = await verifyAdminToken(admin_token, env);
 
     if (!isAdmin) {
       const authErr = await requirePilotToken(request, env, cors);
@@ -616,6 +634,133 @@ async function handleDeleteNotFound(db, fountainId, request, env, cors) {
   }
 }
 
+async function handleGetContributions(db, request, env, cors) {
+  const token = request.headers.get("X-Admin-Token");
+  if (!await verifyAdminToken(token, env)) {
+    return err("Unauthorized", 401, cors);
+  }
+
+  const url = new URL(request.url);
+  const period = url.searchParams.get("period") || "7d";
+  const periodDays = { "1d": 1, "7d": 7, "30d": 30, "90d": 90 }[period];
+  if (!periodDays) return err("Invalid period", 400, cors);
+
+  try {
+    // Daily buckets for ratings, off reports, not-found reports
+    const [ratingsRows, offRows, nfRows, avgRows, newlyRatedRows, uniqueDevicesRows, summaryRatings, summaryNewlyRated] =
+      await Promise.all([
+        db.prepare(
+          `SELECT date(updated_at) AS day, COUNT(*) AS count
+           FROM ratings
+           WHERE updated_at >= datetime('now', ? || ' days')
+           GROUP BY day ORDER BY day`
+        ).bind(-periodDays).all(),
+
+        db.prepare(
+          `SELECT date(created_at) AS day, COUNT(*) AS count
+           FROM status_reports
+           WHERE status = 'off' AND created_at >= datetime('now', ? || ' days')
+           GROUP BY day ORDER BY day`
+        ).bind(-periodDays).all(),
+
+        db.prepare(
+          `SELECT date(created_at) AS day, COUNT(*) AS count
+           FROM not_found_reports
+           WHERE created_at >= datetime('now', ? || ' days')
+           GROUP BY day ORDER BY day`
+        ).bind(-periodDays).all(),
+
+        db.prepare(
+          `SELECT date(updated_at) AS day,
+                  ROUND(CAST(COUNT(*) AS REAL) / COUNT(DISTINCT device_id), 1) AS avg_per_device
+           FROM ratings
+           WHERE updated_at >= datetime('now', ? || ' days')
+           GROUP BY day ORDER BY day`
+        ).bind(-periodDays).all(),
+
+        db.prepare(
+          `SELECT date(first_rated) AS day, COUNT(*) AS count FROM (
+             SELECT fountain_id, MIN(updated_at) AS first_rated
+             FROM ratings GROUP BY fountain_id
+           ) WHERE first_rated >= datetime('now', ? || ' days')
+           GROUP BY day ORDER BY day`
+        ).bind(-periodDays).all(),
+
+        db.prepare(
+          `SELECT date(updated_at) AS day, COUNT(DISTINCT device_id) AS count
+           FROM ratings
+           WHERE updated_at >= datetime('now', ? || ' days')
+           GROUP BY day ORDER BY day`
+        ).bind(-periodDays).all(),
+
+        db.prepare(
+          `SELECT COUNT(*) AS total, COUNT(DISTINCT device_id) AS devices
+           FROM ratings
+           WHERE updated_at >= datetime('now', ? || ' days')`
+        ).bind(-periodDays).first(),
+
+        db.prepare(
+          `SELECT COUNT(*) AS count FROM (
+             SELECT fountain_id, MIN(updated_at) AS first_rated
+             FROM ratings GROUP BY fountain_id
+           ) WHERE first_rated >= datetime('now', ? || ' days')`
+        ).bind(-periodDays).first(),
+      ]);
+
+    // Build a complete date range so charts have no gaps
+    const days = [];
+    for (let i = periodDays - 1; i >= 0; i--) {
+      const d = new Date(Date.now() - i * 86400000);
+      days.push(d.toISOString().slice(0, 10));
+    }
+
+    function toMap(rows) {
+      const m = {};
+      for (const r of rows.results) m[r.day] = r.count;
+      return m;
+    }
+
+    const rMap  = toMap(ratingsRows);
+    const oMap  = toMap(offRows);
+    const nMap  = toMap(nfRows);
+    const udMap = toMap(uniqueDevicesRows);
+    const nrMap = toMap(newlyRatedRows);
+
+    const avgMap = {};
+    for (const r of avgRows.results) avgMap[r.day] = r.avg_per_device;
+
+    const series = days.map(function(day) {
+      return {
+        day,
+        ratings:              rMap[day]  || 0,
+        off_reports:          oMap[day]  || 0,
+        not_found_reports:    nMap[day]  || 0,
+        unique_devices:       udMap[day] || 0,
+        newly_rated:          nrMap[day] || 0,
+        avg_ratings_per_device: avgMap[day] != null ? avgMap[day] : null,
+      };
+    });
+
+    const totalRatings = summaryRatings.total || 0;
+    const uniqueDevices = summaryRatings.devices || 0;
+    const avgRatingsPerDevice = uniqueDevices > 0 ? Math.round((totalRatings / uniqueDevices) * 10) / 10 : 0;
+
+    return json({
+      period,
+      series,
+      summary: {
+        total_ratings: totalRatings,
+        unique_devices: uniqueDevices,
+        avg_ratings_per_device: avgRatingsPerDevice,
+        newly_rated_fountains: summaryNewlyRated.count || 0,
+      },
+    }, 200, cors);
+  } catch (e) {
+    log("error", "GET /admin/contributions", { error: e.message });
+    return err("Internal server error", 500, cors);
+  }
+}
+
 export default {
   async fetch(request, env) {
     const cors = corsHeaders(env.ALLOWED_ORIGIN, request.headers.get("Origin"));
@@ -628,6 +773,10 @@ export default {
 
     if (url.pathname === "/admin/verify" && request.method === "POST") {
       return handleAdminVerify(request, env, cors);
+    }
+
+    if (url.pathname === "/admin/contributions" && request.method === "GET") {
+      return handleGetContributions(env.DB, request, env, cors);
     }
 
     if (url.pathname === "/pilot/verify" && request.method === "POST") {

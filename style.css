@@ -98,6 +98,15 @@ html, body {
   white-space: nowrap;
 }
 
+.menu-item-dashboard {
+  display: block;
+  text-decoration: none;
+}
+
+.menu-item-dashboard.hidden {
+  display: none;
+}
+
 .menu-divider {
   border-top: 1px solid #eee;
   margin: 8px 0;
@@ -512,7 +521,7 @@ html, body {
   border-radius: 8px;
   box-shadow: 0 4px 16px rgba(0,0,0,0.2);
   padding: 10px 14px;
-  min-width: 160px;
+  width: max-content;
   font-size: 13px;
 }
 
@@ -927,13 +936,20 @@ html, body {
 }
 
 .report-section {
-  margin-top: 8px;
-  padding-top: 8px;
+  margin-top: 14px;
+  padding-top: 10px;
   border-top: 1px solid #eee;
 }
 
 .report-actions {
   display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.report-action-row {
+  display: flex;
+  align-items: center;
   gap: 6px;
 }
 
@@ -945,6 +961,7 @@ html, body {
   font-size: 12px;
   cursor: pointer;
   font-family: inherit;
+  white-space: nowrap;
   transition: background 0.15s, color 0.15s;
 }
 

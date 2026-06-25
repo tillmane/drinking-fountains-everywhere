@@ -24,7 +24,7 @@
   var powerUserMode = false;
   var myRatings = {}; // fountainId -> 0 | 1 | null
   var myNotFoundReports = {}; // fountainId -> true
-  var adminPin = null;
+  var adminToken = null;
   var pilotMode = false;
   var pilotToken = null;
   var REQUEST_ACCESS_URL = 'https://docs.google.com/forms/d/e/1FAIpQLSct5j7wwDKQetU40e9zEkbe-7Y6GoZ4iV6cPy2ZmP09iH-NgA/viewform?usp=publish-editor';
@@ -184,6 +184,8 @@
   var TOOLTIPS = {
     accessible: "Features a fountain accessible to wheelchair users",
     dog_bowl:   "Features a near-ground fountain or basin for pet access",
+    report_off: "No water comes out!",
+    not_found:  "Not there or appears decommissioned (no basin, spout, handle, etc.)!",
   };
 
   function tooltipIcon(key) {
@@ -245,7 +247,10 @@
         offHtml = '<div class="report-status reported-off">Reported off (' + local.off_reports + ') as of ' + formatRelativeDate(local.last_off_report_at) + '</div>' +
           '<button class="report-btn report-on-btn" data-fountain-id="' + local.id + '" data-status="on">Report on</button>';
       } else {
-        offHtml = '<button class="report-btn report-off-btn" data-fountain-id="' + local.id + '" data-status="off">Report off</button>';
+        offHtml = '<div class="report-action-row">' +
+          '<button class="report-btn report-off-btn" data-fountain-id="' + local.id + '" data-status="off">Report off</button>' +
+          tooltipIcon("report_off") +
+          '</div>';
       }
     }
 
@@ -253,13 +258,19 @@
     if (powerUserMode && thresholdReached) {
       nfHtml = '<button class="report-btn reinstate-btn" data-fountain-id="' + local.id + '">Reinstate</button>';
     } else if (myNfReport) {
-      nfHtml = '<div class="report-status not-found-status">Reported not found as of ' + formatRelativeDate(local.last_not_found_at) + '</div>' +
-        '<button class="report-btn undo-not-found-btn" data-fountain-id="' + local.id + '">Undo Not Found</button>';
+      nfHtml = '<div class="report-status not-found-status">Reported not found / decommissioned as of ' + formatRelativeDate(local.last_not_found_at) + '</div>' +
+        '<button class="report-btn undo-not-found-btn" data-fountain-id="' + local.id + '">Undo Not Found / Decommissioned</button>';
     } else if (anyNfReport) {
-      nfHtml = '<div class="report-status not-found-status">Reported not found (' + local.not_found_count + ')</div>' +
-        '<button class="report-btn confirm-not-found-btn" data-fountain-id="' + local.id + '">Confirm Not Found</button>';
+      nfHtml = '<div class="report-status not-found-status">Reported not found / decommissioned (' + local.not_found_count + ')</div>' +
+        '<div class="report-action-row">' +
+        '<button class="report-btn confirm-not-found-btn" data-fountain-id="' + local.id + '">Confirm Not Found / Decommissioned</button>' +
+        tooltipIcon("not_found") +
+        '</div>';
     } else {
-      nfHtml = '<button class="report-btn not-found-btn" data-fountain-id="' + local.id + '">Not Found</button>';
+      nfHtml = '<div class="report-action-row">' +
+        '<button class="report-btn not-found-btn" data-fountain-id="' + local.id + '">Not Found / Decommissioned</button>' +
+        tooltipIcon("not_found") +
+        '</div>';
     }
 
     return '<div class="report-section">' +
@@ -550,14 +561,14 @@
       });
   }
 
-  function submitNotFound(fountainId, adminToken) {
+  function submitNotFound(fountainId, isAdminAction) {
     if (!API_BASE) return;
-    var isUndo = !adminToken && myNotFoundReports[fountainId];
-    var method = (isUndo || adminToken) ? "DELETE" : "POST";
-    var body = adminToken
+    var isUndo = !isAdminAction && myNotFoundReports[fountainId];
+    var method = (isUndo || isAdminAction) ? "DELETE" : "POST";
+    var body = isAdminAction
       ? { admin_token: adminToken }
       : { device_id: deviceId };
-    var headers = adminToken ? { "Content-Type": "application/json" } : pilotHeaders();
+    var headers = isAdminAction ? { "Content-Type": "application/json" } : pilotHeaders();
     fetch(API_BASE + "/fountains/" + fountainId + "/not-found", {
       method: method,
       headers: headers,
@@ -573,7 +584,7 @@
           showError("Failed: " + data.error);
           return;
         }
-        if (!adminToken) myNotFoundReports[fountainId] = data.your_report;
+        if (!isAdminAction) myNotFoundReports[fountainId] = data.your_report;
         var f = fountainIndex[fountainId];
         if (f) {
           f.not_found_count = data.not_found_count;
@@ -663,7 +674,7 @@
       btn.addEventListener("click", function () {
         var fId = parseInt(this.dataset.fountainId);
         if (btn.classList.contains("not-found-btn") || btn.classList.contains("confirm-not-found-btn")) {
-          showConfirm("Are you sure this fountain is missing? Reporting it Not Found may result in removal from the map.", function () { submitNotFound(fId); });
+          showConfirm("Are you sure this fountain is not found or decommissioned? Reporting it may result in removal from the map.", function () { submitNotFound(fId); });
           return;
         }
         if (btn.classList.contains("undo-not-found-btn")) {
@@ -671,7 +682,7 @@
           return;
         }
         if (btn.classList.contains("reinstate-btn")) {
-          submitNotFound(fId, adminPin);
+          submitNotFound(fId, true);
           return;
         }
         var status = this.dataset.status;
@@ -900,10 +911,17 @@
     return sessionStorage.getItem(ADMIN_SESSION_KEY) === "1";
   }
 
+  if (isAdminUnlocked()) {
+    adminToken = sessionStorage.getItem("admin_token");
+  }
+
+  var menuDashboardLink = document.getElementById("menu-dashboard-link");
+
   function activateAdminMode() {
     powerUserMode = true;
     layerControl.classList.remove("hidden");
     legendAdminRow.classList.remove("hidden");
+    menuDashboardLink.classList.remove("hidden");
     updateRatingCounts();
     renderAll();
   }
@@ -912,6 +930,7 @@
     powerUserMode = false;
     layerControl.classList.add("hidden");
     legendAdminRow.classList.add("hidden");
+    menuDashboardLink.classList.add("hidden");
     if (layerOptions.ratingFilter) {
       layerOptions.ratingFilter = null;
       ratedBtn.classList.remove("active");
@@ -949,7 +968,8 @@
         pinSubmitBtn.textContent = "Unlock";
         if (r.ok) {
           sessionStorage.setItem(ADMIN_SESSION_KEY, "1");
-          adminPin = pin;
+          sessionStorage.setItem("admin_token", r.data.token);
+          adminToken = r.data.token;
           closePinModal();
           activateAdminMode();
         } else {
