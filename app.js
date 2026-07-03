@@ -458,11 +458,27 @@
   function updateCount() {
     var bounds = map.getBounds();
     var count = 0;
-    Object.values(sources).forEach(function (src) {
-      if (!src.visible) return;
-      src.layerGroup.eachLayer(function (marker) {
-        if (bounds.contains(marker.getLatLng())) count++;
-      });
+    fountainList.forEach(function (local) {
+      // Mirror renderCity / renderOsm visibility logic
+      if (layerOptions.showNotFound ? !local.not_found : local.not_found) return;
+      if (activeFilters.accessible && !fountainHasAccessible(local)) return;
+      if (activeFilters.bottle && !fountainHasBottle(local)) return;
+      if (activeFilters.dog && !fountainHasDog(local)) return;
+      if (!passesRatingFilter(local)) return;
+
+      var hasCityGis = fountainHasCityGisMatch(local);
+      var hasOsm = fountainHasOsmMatch(local);
+
+      var visible = false;
+      if (hasCityGis && sources.city.visible) {
+        if (!layerOptions.cityUniqueOnly || !hasOsm) visible = true;
+      }
+      if (!visible && hasOsm && sources.osm.visible) {
+        if (powerUserMode || !hasCityGis) visible = true;
+      }
+      if (!visible) return;
+
+      if (bounds.contains(L.latLng(local.lat, local.lon))) count++;
     });
     var el = document.getElementById("fountain-count");
     el.textContent = count + " fountain" + (count !== 1 ? "s" : "") + " in view";
