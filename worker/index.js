@@ -647,70 +647,128 @@ async function handleGetContributions(db, request, env, cors) {
 
   try {
     // Daily buckets for ratings, off reports, not-found reports
-    const [ratingsRows, offRows, nfRows, avgRows, newlyRatedRows, uniqueDevicesRows, summaryRatings, summaryNewlyRated] =
+    // Dates bucketed in Pacific time (UTC-7, fixed offset — close enough for an admin dashboard)
+    const [ratingsRows, offRows, nfRows, avgRows, newlyRatedRows, uniqueDevicesRows, summaryRatings, summaryNewlyRated, fountainStatusRows] =
       await Promise.all([
         db.prepare(
-          `SELECT date(updated_at) AS day, COUNT(*) AS count
+          `SELECT date(updated_at, '-7 hours') AS day, COUNT(*) AS count
            FROM ratings
-           WHERE updated_at >= datetime('now', ? || ' days')
+           WHERE updated_at >= datetime('now', ? || ' days', '-7 hours')
            GROUP BY day ORDER BY day`
         ).bind(-periodDays).all(),
 
         db.prepare(
-          `SELECT date(created_at) AS day, COUNT(*) AS count
+          `SELECT date(created_at, '-7 hours') AS day, COUNT(*) AS count
            FROM status_reports
-           WHERE status = 'off' AND created_at >= datetime('now', ? || ' days')
+           WHERE status = 'off' AND created_at >= datetime('now', ? || ' days', '-7 hours')
            GROUP BY day ORDER BY day`
         ).bind(-periodDays).all(),
 
         db.prepare(
-          `SELECT date(created_at) AS day, COUNT(*) AS count
+          `SELECT date(created_at, '-7 hours') AS day, COUNT(*) AS count
            FROM not_found_reports
-           WHERE created_at >= datetime('now', ? || ' days')
+           WHERE created_at >= datetime('now', ? || ' days', '-7 hours')
            GROUP BY day ORDER BY day`
         ).bind(-periodDays).all(),
 
         db.prepare(
-          `SELECT date(updated_at) AS day,
+          `SELECT date(updated_at, '-7 hours') AS day,
                   ROUND(CAST(COUNT(*) AS REAL) / COUNT(DISTINCT device_id), 1) AS avg_per_device
            FROM ratings
-           WHERE updated_at >= datetime('now', ? || ' days')
+           WHERE updated_at >= datetime('now', ? || ' days', '-7 hours')
            GROUP BY day ORDER BY day`
         ).bind(-periodDays).all(),
 
         db.prepare(
-          `SELECT date(first_rated) AS day, COUNT(*) AS count FROM (
+          `SELECT date(first_rated, '-7 hours') AS day, COUNT(*) AS count FROM (
              SELECT fountain_id, MIN(updated_at) AS first_rated
              FROM ratings GROUP BY fountain_id
-           ) WHERE first_rated >= datetime('now', ? || ' days')
+           ) WHERE first_rated >= datetime('now', ? || ' days', '-7 hours')
            GROUP BY day ORDER BY day`
         ).bind(-periodDays).all(),
 
         db.prepare(
-          `SELECT date(updated_at) AS day, COUNT(DISTINCT device_id) AS count
+          `SELECT date(updated_at, '-7 hours') AS day, COUNT(DISTINCT device_id) AS count
            FROM ratings
-           WHERE updated_at >= datetime('now', ? || ' days')
+           WHERE updated_at >= datetime('now', ? || ' days', '-7 hours')
            GROUP BY day ORDER BY day`
         ).bind(-periodDays).all(),
 
         db.prepare(
           `SELECT COUNT(*) AS total, COUNT(DISTINCT device_id) AS devices
            FROM ratings
-           WHERE updated_at >= datetime('now', ? || ' days')`
+           WHERE updated_at >= datetime('now', ? || ' days', '-7 hours')`
         ).bind(-periodDays).first(),
 
         db.prepare(
           `SELECT COUNT(*) AS count FROM (
              SELECT fountain_id, MIN(updated_at) AS first_rated
              FROM ratings GROUP BY fountain_id
-           ) WHERE first_rated >= datetime('now', ? || ' days')`
+           ) WHERE first_rated >= datetime('now', ? || ' days', '-7 hours')`
         ).bind(-periodDays).first(),
+
+        // Fountain status breakdown (across all merged fountains, independent of period)
+        // Priority order: not_found > reported_off > city_shutoff > thumbs_down > thumbs_up > unrated
+        db.prepare(
+          `SELECT
+             SUM(CASE WHEN nf.nf_count >= ${NOT_FOUND_THRESHOLD}                                 THEN 1 ELSE 0 END) AS not_found,
+             SUM(CASE WHEN nf.nf_count < ${NOT_FOUND_THRESHOLD} AND sr.off_count > 0             THEN 1 ELSE 0 END) AS reported_off,
+             SUM(CASE WHEN nf.nf_count < ${NOT_FOUND_THRESHOLD} AND sr.off_count IS NULL
+                       AND EXISTS (
+                         SELECT 1 FROM fountain_sources fs
+                         WHERE fs.fountain_id = f.id AND fs.source_type = 'city_gis'
+                           AND json_extract(fs.source_data, '$.CURRENT_STATUS') != 'ON'
+                           AND json_extract(fs.source_data, '$.CURRENT_STATUS') IS NOT NULL
+                       )                                                                          THEN 1 ELSE 0 END) AS city_shutoff,
+             SUM(CASE WHEN nf.nf_count < ${NOT_FOUND_THRESHOLD} AND sr.off_count IS NULL
+                       AND NOT EXISTS (
+                         SELECT 1 FROM fountain_sources fs
+                         WHERE fs.fountain_id = f.id AND fs.source_type = 'city_gis'
+                           AND json_extract(fs.source_data, '$.CURRENT_STATUS') != 'ON'
+                           AND json_extract(fs.source_data, '$.CURRENT_STATUS') IS NOT NULL
+                       )
+                       AND r.thumbs_down > r.thumbs_up AND r.rating_count > 0                    THEN 1 ELSE 0 END) AS thumbs_down,
+             SUM(CASE WHEN nf.nf_count < ${NOT_FOUND_THRESHOLD} AND sr.off_count IS NULL
+                       AND NOT EXISTS (
+                         SELECT 1 FROM fountain_sources fs
+                         WHERE fs.fountain_id = f.id AND fs.source_type = 'city_gis'
+                           AND json_extract(fs.source_data, '$.CURRENT_STATUS') != 'ON'
+                           AND json_extract(fs.source_data, '$.CURRENT_STATUS') IS NOT NULL
+                       )
+                       AND r.thumbs_up >= r.thumbs_down AND r.rating_count > 0                   THEN 1 ELSE 0 END) AS thumbs_up,
+             SUM(CASE WHEN nf.nf_count < ${NOT_FOUND_THRESHOLD} AND sr.off_count IS NULL
+                       AND NOT EXISTS (
+                         SELECT 1 FROM fountain_sources fs
+                         WHERE fs.fountain_id = f.id AND fs.source_type = 'city_gis'
+                           AND json_extract(fs.source_data, '$.CURRENT_STATUS') != 'ON'
+                           AND json_extract(fs.source_data, '$.CURRENT_STATUS') IS NOT NULL
+                       )
+                       AND (r.rating_count = 0 OR r.rating_count IS NULL)                        THEN 1 ELSE 0 END) AS unrated
+           FROM fountains f
+           LEFT JOIN (
+             SELECT fountain_id,
+                    SUM(CASE WHEN score = 1 THEN 1 ELSE 0 END) AS thumbs_up,
+                    SUM(CASE WHEN score = 0 THEN 1 ELSE 0 END) AS thumbs_down,
+                    COUNT(*) AS rating_count
+             FROM ratings GROUP BY fountain_id
+           ) r ON r.fountain_id = f.id
+           LEFT JOIN (
+             SELECT fountain_id, COUNT(*) AS off_count FROM status_reports
+             WHERE status = 'off' GROUP BY fountain_id
+           ) sr ON sr.fountain_id = f.id
+           LEFT JOIN (
+             SELECT fountain_id, COUNT(*) AS nf_count FROM not_found_reports
+             GROUP BY fountain_id
+           ) nf ON nf.fountain_id = f.id`
+        ).first(),
       ]);
 
-    // Build a complete date range so charts have no gaps
+    // Build a complete date range so charts have no gaps.
+    // Offset by -7h to match Pacific time bucketing in the SQL queries.
+    const PACIFIC_OFFSET_MS = 7 * 3600000;
     const days = [];
     for (let i = periodDays - 1; i >= 0; i--) {
-      const d = new Date(Date.now() - i * 86400000);
+      const d = new Date(Date.now() - PACIFIC_OFFSET_MS - i * 86400000);
       days.push(d.toISOString().slice(0, 10));
     }
 
@@ -753,6 +811,14 @@ async function handleGetContributions(db, request, env, cors) {
         unique_devices: uniqueDevices,
         avg_ratings_per_device: avgRatingsPerDevice,
         newly_rated_fountains: summaryNewlyRated.count || 0,
+      },
+      fountain_status_summary: {
+        unrated:      fountainStatusRows.unrated      || 0,
+        thumbs_up:    fountainStatusRows.thumbs_up    || 0,
+        thumbs_down:  fountainStatusRows.thumbs_down  || 0,
+        reported_off: fountainStatusRows.reported_off || 0,
+        city_shutoff: fountainStatusRows.city_shutoff || 0,
+        not_found:    fountainStatusRows.not_found    || 0,
       },
     }, 200, cors);
   } catch (e) {

@@ -196,6 +196,15 @@
       height: 220px;
     }
 
+    /* ─── Pie chart ─────────────────────────────────────────── */
+
+    .pie-wrap {
+      position: relative;
+      height: 260px;
+      display: flex;
+      justify-content: center;
+    }
+
     /* ─── Loading / error ───────────────────────────────────── */
 
     #status-msg {
@@ -270,6 +279,10 @@
       <div class="chart-card">
         <h2>Unique devices contributing per day</h2>
         <div class="chart-wrap"><canvas id="chart-devices"></canvas></div>
+      </div>
+      <div class="chart-card">
+        <h2>Fountain status breakdown (all merged fountains)</h2>
+        <div class="pie-wrap"><canvas id="chart-status-pie"></canvas></div>
       </div>
     </div>
   </div>
@@ -364,6 +377,7 @@
       var chartAvg        = null;
       var chartNewlyRated = null;
       var chartDevices    = null;
+      var chartStatusPie  = null;
 
       function baseOpts(extraScaleY) {
         return {
@@ -381,6 +395,53 @@
         return series.map(function (r) {
           var d = new Date(r.day + "T00:00:00");
           return d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+        });
+      }
+
+      function renderStatusPie(statusSummary) {
+        var s = statusSummary;
+        if (chartStatusPie) chartStatusPie.destroy();
+        chartStatusPie = new Chart(document.getElementById("chart-status-pie"), {
+          type: "pie",
+          data: {
+            labels: [
+              "Not yet rated",
+              "Mostly 👍",
+              "Mostly 👎",
+              "Reported off",
+              "Shut off (city)",
+              "Not found / decommissioned",
+            ],
+            datasets: [{
+              data: [s.unrated, s.thumbs_up, s.thumbs_down, s.reported_off, s.city_shutoff, s.not_found],
+              backgroundColor: [
+                "rgba(158,158,158,0.85)",
+                "rgba(37,99,235,0.85)",
+                "rgba(37,99,235,0.5)",
+                "rgba(230,126,34,0.85)",
+                "rgba(198,40,40,0.85)",
+                "rgba(230,126,34,0.5)",
+              ],
+              borderWidth: 1,
+              borderColor: "#fff",
+            }],
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+              legend: { position: "bottom", labels: { boxWidth: 12, font: { size: 12 } } },
+              tooltip: {
+                callbacks: {
+                  label: function (ctx) {
+                    var total = ctx.dataset.data.reduce(function (a, b) { return a + b; }, 0);
+                    var pct = total > 0 ? Math.round(ctx.parsed / total * 100) : 0;
+                    return " " + ctx.label + ": " + ctx.parsed + " (" + pct + "%)";
+                  },
+                },
+              },
+            },
+          },
         });
       }
 
@@ -453,6 +514,7 @@
             document.getElementById("stat-newly-rated").textContent  = s.newly_rated_fountains;
 
             renderCharts(r.data.series);
+            if (r.data.fountain_status_summary) renderStatusPie(r.data.fountain_status_summary);
 
             statusMsg.style.display = "none";
             content.classList.add("visible");

@@ -32,8 +32,9 @@
   var map = L.map("map", {
     center: SEATTLE_CENTER,
     zoom: DEFAULT_ZOOM,
-    zoomControl: true,
+    zoomControl: false,
   });
+  L.control.zoom({ position: "bottomright" }).addTo(map);
 
   L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
     attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',

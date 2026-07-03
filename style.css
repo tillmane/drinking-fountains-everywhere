@@ -591,12 +591,8 @@ html, body {
   z-index: 0;
 }
 
-.leaflet-popup-pane {
-  z-index: 1001 !important;
-}
-
-.leaflet-top.leaflet-left {
-  top: 10px;
+.leaflet-bottom.leaflet-right {
+  bottom: 10px;
 }
 
 .leaflet-control-zoom a {
@@ -610,7 +606,7 @@ html, body {
 
 #fountain-count {
   position: absolute;
-  bottom: 10px;
+  bottom: 52px;
   left: 50%;
   transform: translateX(-50%);
   z-index: 1000;
@@ -628,8 +624,9 @@ html, body {
 
 #feedback-btn {
   position: fixed;
-  bottom: 20px;
-  left: 16px;
+  bottom: 10px;
+  left: 50%;
+  transform: translateX(-50%);
   z-index: 1000;
   background: #1a73e8;
   color: #fff;
@@ -645,11 +642,11 @@ html, body {
 
 #feedback-btn:hover {
   background: #1557b0;
-  transform: translateY(-1px);
+  transform: translateX(-50%) translateY(-1px);
 }
 
 #feedback-btn:active {
-  transform: translateY(0);
+  transform: translateX(-50%) translateY(0);
 }
 
 /* ─── Layer control (admin floating panel) ─────────────────── */

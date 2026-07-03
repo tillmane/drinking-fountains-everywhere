@@ -16,6 +16,13 @@ Access to clean water is a basic human right, yet even in urban areas with high 
 
 ## Release History
 
+### V3.2: Minor Bugs and Annoyances, Fixed (pushed July 3, 2026)
+- Rating pop-up should always be on top. Currently it's underneath the zoom controls
+- Share feedback CTA overlaps the # of fountains in view label
+- Contribution dashboard
+  - time frames should be in Pacific/Los Angeles time zone
+  - add a pie chart that shows % of all merged fountains: not yet rated or reported off or not found, mostly thumbs up, mostly thumbs down, reported off, reported not found/decommissioned
+
 ### V3.1: Reporting on Reporting (pushed June 24, 2026)
 - UX Updates
   - Change "Not Found" to "Not Found / Decommissioned" where decommissioned means elements of the fountain such as pedestal or cabinet still remain, but the fixtures (basin, spigot, handle, etc) are removed
