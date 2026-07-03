@@ -711,16 +711,16 @@ async function handleGetContributions(db, request, env, cors) {
         // Priority order: not_found > reported_off > city_shutoff > thumbs_down > thumbs_up > unrated
         db.prepare(
           `SELECT
-             SUM(CASE WHEN nf.nf_count >= ${NOT_FOUND_THRESHOLD}                                 THEN 1 ELSE 0 END) AS not_found,
-             SUM(CASE WHEN nf.nf_count < ${NOT_FOUND_THRESHOLD} AND sr.off_count > 0             THEN 1 ELSE 0 END) AS reported_off,
-             SUM(CASE WHEN nf.nf_count < ${NOT_FOUND_THRESHOLD} AND sr.off_count IS NULL
+             SUM(CASE WHEN COALESCE(nf.nf_count, 0) >= ${NOT_FOUND_THRESHOLD}                                 THEN 1 ELSE 0 END) AS not_found,
+             SUM(CASE WHEN COALESCE(nf.nf_count, 0) < ${NOT_FOUND_THRESHOLD} AND sr.off_count > 0             THEN 1 ELSE 0 END) AS reported_off,
+             SUM(CASE WHEN COALESCE(nf.nf_count, 0) < ${NOT_FOUND_THRESHOLD} AND sr.off_count IS NULL
                        AND EXISTS (
                          SELECT 1 FROM fountain_sources fs
                          WHERE fs.fountain_id = f.id AND fs.source_type = 'city_gis'
                            AND json_extract(fs.source_data, '$.CURRENT_STATUS') != 'ON'
                            AND json_extract(fs.source_data, '$.CURRENT_STATUS') IS NOT NULL
                        )                                                                          THEN 1 ELSE 0 END) AS city_shutoff,
-             SUM(CASE WHEN nf.nf_count < ${NOT_FOUND_THRESHOLD} AND sr.off_count IS NULL
+             SUM(CASE WHEN COALESCE(nf.nf_count, 0) < ${NOT_FOUND_THRESHOLD} AND sr.off_count IS NULL
                        AND NOT EXISTS (
                          SELECT 1 FROM fountain_sources fs
                          WHERE fs.fountain_id = f.id AND fs.source_type = 'city_gis'
@@ -728,7 +728,7 @@ async function handleGetContributions(db, request, env, cors) {
                            AND json_extract(fs.source_data, '$.CURRENT_STATUS') IS NOT NULL
                        )
                        AND r.thumbs_down > r.thumbs_up AND r.rating_count > 0                    THEN 1 ELSE 0 END) AS thumbs_down,
-             SUM(CASE WHEN nf.nf_count < ${NOT_FOUND_THRESHOLD} AND sr.off_count IS NULL
+             SUM(CASE WHEN COALESCE(nf.nf_count, 0) < ${NOT_FOUND_THRESHOLD} AND sr.off_count IS NULL
                        AND NOT EXISTS (
                          SELECT 1 FROM fountain_sources fs
                          WHERE fs.fountain_id = f.id AND fs.source_type = 'city_gis'
@@ -736,7 +736,7 @@ async function handleGetContributions(db, request, env, cors) {
                            AND json_extract(fs.source_data, '$.CURRENT_STATUS') IS NOT NULL
                        )
                        AND r.thumbs_up >= r.thumbs_down AND r.rating_count > 0                   THEN 1 ELSE 0 END) AS thumbs_up,
-             SUM(CASE WHEN nf.nf_count < ${NOT_FOUND_THRESHOLD} AND sr.off_count IS NULL
+             SUM(CASE WHEN COALESCE(nf.nf_count, 0) < ${NOT_FOUND_THRESHOLD} AND sr.off_count IS NULL
                        AND NOT EXISTS (
                          SELECT 1 FROM fountain_sources fs
                          WHERE fs.fountain_id = f.id AND fs.source_type = 'city_gis'
