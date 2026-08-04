@@ -145,6 +145,10 @@ async function handleGetFountains(db, cors) {
       .prepare("SELECT fountain_id, attribute, value FROM fountain_attributes")
       .all();
 
+    const { results: attrTimestamps } = await db
+      .prepare("SELECT fountain_id, MAX(updated_at) AS last_attr_at FROM fountain_attributes GROUP BY fountain_id")
+      .all();
+
     const { results: offReports } = await db
       .prepare(
         `SELECT fountain_id, COUNT(*) AS off_count, MAX(created_at) AS last_off_at
@@ -188,11 +192,22 @@ async function handleGetFountains(db, cors) {
       nfMap[r.fountain_id] = { nf_count: r.nf_count, last_nf_at: r.last_nf_at };
     }
 
+    const attrTsMap = {};
+    for (const a of attrTimestamps) {
+      attrTsMap[a.fountain_id] = a.last_attr_at;
+    }
+
     log("info", "GET /fountains", { status: 200, ms: Date.now() - t0 });
     return json({
       fountains: fountains.map((f) => {
         const report = reportMap[f.id];
         const fa = attrMap[f.id] || {};
+        const last_contributed_at = [
+          f.last_rated_at,
+          report ? report.last_off_at : null,
+          nfMap[f.id] ? nfMap[f.id].last_nf_at : null,
+          attrTsMap[f.id] || null,
+        ].filter(Boolean).sort().pop() || null;
         return {
           ...f,
           thumbs_up: f.thumbs_up || 0,
@@ -207,6 +222,7 @@ async function handleGetFountains(db, cors) {
           not_found_count: nfMap[f.id] ? nfMap[f.id].nf_count : 0,
           not_found: nfMap[f.id] ? nfMap[f.id].nf_count >= NOT_FOUND_THRESHOLD : false,
           last_not_found_at: nfMap[f.id] ? nfMap[f.id].last_nf_at : null,
+          last_contributed_at,
         };
       }),
     }, 200, cors);
@@ -244,8 +260,6 @@ async function handleGetRatings(db, fountainId, cors) {
 }
 
 async function handlePostRating(db, fountainId, request, env, cors) {
-  const authErr = await requirePilotToken(request, env, cors);
-  if (authErr) return authErr;
   const t0 = Date.now();
   let devicePrefix = "unknown";
   try {
@@ -320,8 +334,6 @@ async function handlePostRating(db, fountainId, request, env, cors) {
 }
 
 async function handleDeleteRating(db, fountainId, request, env, cors) {
-  const authErr = await requirePilotToken(request, env, cors);
-  if (authErr) return authErr;
   const t0 = Date.now();
   let devicePrefix = "unknown";
   try {
@@ -375,8 +387,6 @@ async function handleDeleteRating(db, fountainId, request, env, cors) {
 }
 
 async function handlePostReport(db, fountainId, request, env, cors) {
-  const authErr = await requirePilotToken(request, env, cors);
-  if (authErr) return authErr;
   const t0 = Date.now();
   let devicePrefix = "unknown";
   try {
@@ -450,8 +460,6 @@ async function handlePostReport(db, fountainId, request, env, cors) {
 }
 
 async function handlePostAttributes(db, fountainId, request, env, cors) {
-  const authErr = await requirePilotToken(request, env, cors);
-  if (authErr) return authErr;
   const t0 = Date.now();
   let devicePrefix = "unknown";
   try {
@@ -524,8 +532,6 @@ async function handlePostAttributes(db, fountainId, request, env, cors) {
 }
 
 async function handlePostNotFound(db, fountainId, request, env, cors) {
-  const authErr = await requirePilotToken(request, env, cors);
-  if (authErr) return authErr;
   const t0 = Date.now();
   let devicePrefix = "unknown";
   try {
@@ -587,11 +593,6 @@ async function handleDeleteNotFound(db, fountainId, request, env, cors) {
     const { device_id, admin_token } = body;
 
     const isAdmin = await verifyAdminToken(admin_token, env);
-
-    if (!isAdmin) {
-      const authErr = await requirePilotToken(request, env, cors);
-      if (authErr) return authErr;
-    }
 
     if (isAdmin) {
       await db

@@ -25,9 +25,7 @@
   var myRatings = {}; // fountainId -> 0 | 1 | null
   var myNotFoundReports = {}; // fountainId -> true
   var adminToken = null;
-  var pilotMode = false;
-  var pilotToken = null;
-  var REQUEST_ACCESS_URL = 'https://docs.google.com/forms/d/e/1FAIpQLSct5j7wwDKQetU40e9zEkbe-7Y6GoZ4iV6cPy2ZmP09iH-NgA/viewform?usp=publish-editor';
+  var locateBtn = null;
 
   var map = L.map("map", {
     center: SEATTLE_CENTER,
@@ -35,6 +33,26 @@
     zoomControl: false,
   });
   L.control.zoom({ position: "bottomright" }).addTo(map);
+
+  var LocateControl = L.Control.extend({
+    options: { position: "bottomright" },
+    onAdd: function () {
+      var container = L.DomUtil.create("div", "leaflet-bar leaflet-control leaflet-control-locate");
+      var btn = L.DomUtil.create("a", "", container);
+      btn.href = "#";
+      btn.title = "Use my location";
+      btn.setAttribute("aria-label", "Use my location");
+      btn.setAttribute("role", "button");
+      btn.innerHTML = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path fill="currentColor" stroke="none" d="M12 5 L17 16 L12 13 L7 16 Z" transform="rotate(22.5 12 12)"/></svg>';
+      L.DomEvent.on(btn, "click", function (e) {
+        L.DomEvent.preventDefault(e);
+        locateUser();
+      });
+      locateBtn = btn;
+      return container;
+    },
+  });
+  new LocateControl().addTo(map);
 
   L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
     attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
@@ -58,7 +76,7 @@
 
   var layerOptions = {
     cityUniqueOnly: false,
-    ratingFilter: null, // null | "rated" | "unrated"
+    ratingFilter: null, // null | "rated" | "unrated" | "rated-7d"
     showNotFound: false,
   };
 
@@ -147,10 +165,25 @@
     return "up";
   }
 
+  function hasUserContribution(local) {
+    if (!local) return false;
+    return local.rating_count > 0 ||
+           local.user_accessible ||
+           local.user_bottle_filler ||
+           local.user_dog_bowl ||
+           local.off_reports > 0 ||
+           local.not_found_count > 0;
+  }
+
   function passesRatingFilter(local) {
     if (!layerOptions.ratingFilter) return true;
-    var rated = local && local.rating_count > 0;
-    return layerOptions.ratingFilter === "rated" ? rated : !rated;
+    if (layerOptions.ratingFilter === "rated-7d") {
+      var ts = local && (local.last_contributed_at || local.last_rated_at);
+      if (!ts) return false;
+      return (Date.now() - new Date(ts).getTime()) < 7 * 86400000;
+    }
+    var acted = hasUserContribution(local);
+    return layerOptions.ratingFilter === "rated" ? acted : !acted;
   }
 
   function formatRelativeDate(isoString) {
@@ -195,14 +228,6 @@
 
   function buildAttributeSection(local, sourceAccessible) {
     if (!local) return "";
-    if (!pilotMode) {
-      var parts = [];
-      if (sourceAccessible || local.user_accessible) parts.push("Accessible");
-      if (local.user_bottle_filler) parts.push("Bottle Filler");
-      if (local.user_dog_bowl) parts.push("Dog Bowl");
-      if (parts.length === 0) return "";
-      return '<div class="attr-section attr-section-readonly"><span class="attr-readonly-label">' + parts.join(" · ") + '</span></div>';
-    }
     var accessibleChecked = (sourceAccessible || local.user_accessible) ? " checked" : "";
     var bottleChecked = local.user_bottle_filler ? " checked" : "";
     var dogChecked = local.user_dog_bowl ? " checked" : "";
@@ -226,7 +251,6 @@
 
   function buildReportSection(local) {
     if (!local) return "";
-    if (!pilotMode) return "";
 
     var anyNfReport = local.not_found_count > 0;
     var myNfReport = !!myNotFoundReports[local.id];
@@ -290,20 +314,6 @@
     if (sourceOff) {
       return '<div class="rating-section" data-fountain-id="' + local.id + '">' +
         '<p class="rating-unavailable">Ratings disabled — fountain shut off by city</p>' +
-      '</div>';
-    }
-
-    if (!pilotMode) {
-      var ratingsSummary = (local.rating_count > 0)
-        ? '<div class="rating-summary">' +
-            '<span class="rating-summary-item">👍 ' + (local.thumbs_up || 0) + '</span>' +
-            '<span class="rating-summary-item">👎 ' + (local.thumbs_down || 0) + '</span>' +
-            (local.last_rated_at ? '<span class="rating-last">Last rated ' + formatRelativeDate(local.last_rated_at) + '</span>' : '') +
-          '</div>'
-        : '<p class="rating-unavailable">Not yet rated</p>';
-      return '<div class="rating-section" data-fountain-id="' + local.id + '">' +
-        ratingsSummary +
-        '<p class="rating-request-access"><a href="' + REQUEST_ACCESS_URL + '" target="_blank" rel="noopener">Request pilot access</a> to rate this fountain.</p>' +
       '</div>';
     }
 
@@ -396,9 +406,10 @@
       if (activeFilters.bottle && !fountainHasBottle(local)) return;
       if (activeFilters.dog && !fountainHasDog(local)) return;
       if (!passesRatingFilter(local)) return;
+      var hasNfReport = local.not_found_count > 0;
       if (layerOptions.showNotFound) {
-        if (!local.not_found) return;
-      } else if (local.not_found) return;
+        if (!hasNfReport) return;
+      } else if (hasNfReport) return;
 
       var icon = layerOptions.showNotFound ? icons.reportedNotFound : getCityIcon(local, citySD);
       var cm = L.marker([local.lat, local.lon], { icon: icon, zIndexOffset: getPinZIndex(local) });
@@ -417,9 +428,10 @@
       if (activeFilters.bottle && !fountainHasBottle(local)) return;
       if (activeFilters.dog && !fountainHasDog(local)) return;
       if (!passesRatingFilter(local)) return;
+      var hasNfReport = local.not_found_count > 0;
       if (layerOptions.showNotFound) {
-        if (!local.not_found) return;
-      } else if (local.not_found) return;
+        if (!hasNfReport) return;
+      } else if (hasNfReport) return;
 
       var icon = layerOptions.showNotFound ? icons.reportedNotFound : getOsmIcon(local);
       var om = L.marker([local.lat, local.lon], { icon: icon, zIndexOffset: getPinZIndex(local) });
@@ -460,7 +472,8 @@
     var count = 0;
     fountainList.forEach(function (local) {
       // Mirror renderCity / renderOsm visibility logic
-      if (layerOptions.showNotFound ? !local.not_found : local.not_found) return;
+      var hasNfReport = local.not_found_count > 0;
+      if (layerOptions.showNotFound ? !hasNfReport : hasNfReport) return;
       if (activeFilters.accessible && !fountainHasAccessible(local)) return;
       if (activeFilters.bottle && !fountainHasBottle(local)) return;
       if (activeFilters.dog && !fountainHasDog(local)) return;
@@ -507,28 +520,16 @@
       });
   }
 
-  function pilotHeaders() {
-    var h = { "Content-Type": "application/json" };
-    if (pilotToken) h["X-Pilot-Token"] = pilotToken;
-    return h;
-  }
-
-  function handlePilotUnauthorized() {
-    showError("Pilot session expired. Please re-enter your pilot code.");
-    deactivatePilotMode();
-  }
+  var JSON_HEADERS = { "Content-Type": "application/json" };
 
   function submitAttribute(fountainId, attribute, value) {
     if (!API_BASE) return;
     fetch(API_BASE + "/fountains/" + fountainId + "/attributes", {
       method: "POST",
-      headers: pilotHeaders(),
+      headers: JSON_HEADERS,
       body: JSON.stringify({ device_id: deviceId, attribute: attribute, value: value }),
     })
-      .then(function (res) {
-        if (res.status === 401) { handlePilotUnauthorized(); return null; }
-        return res.json();
-      })
+      .then(function (res) { return res.json(); })
       .then(function (data) {
         if (!data) return;
         if (data.error) {
@@ -551,13 +552,10 @@
     if (!API_BASE) return;
     fetch(API_BASE + "/fountains/" + fountainId + "/report", {
       method: "POST",
-      headers: pilotHeaders(),
+      headers: JSON_HEADERS,
       body: JSON.stringify({ device_id: deviceId, status: status }),
     })
-      .then(function (res) {
-        if (res.status === 401) { handlePilotUnauthorized(); return null; }
-        return res.json();
-      })
+      .then(function (res) { return res.json(); })
       .then(function (data) {
         if (!data) return;
         if (data.error) {
@@ -585,16 +583,12 @@
     var body = isAdminAction
       ? { admin_token: adminToken }
       : { device_id: deviceId };
-    var headers = isAdminAction ? { "Content-Type": "application/json" } : pilotHeaders();
     fetch(API_BASE + "/fountains/" + fountainId + "/not-found", {
       method: method,
-      headers: headers,
+      headers: JSON_HEADERS,
       body: JSON.stringify(body),
     })
-      .then(function (res) {
-        if (res.status === 401) { handlePilotUnauthorized(); return null; }
-        return res.json();
-      })
+      .then(function (res) { return res.json(); })
       .then(function (data) {
         if (!data) return;
         if (data.error) {
@@ -622,13 +616,10 @@
     var method = isUnrating ? "DELETE" : "POST";
     fetch(API_BASE + "/fountains/" + fountainId + "/rating", {
       method: method,
-      headers: pilotHeaders(),
+      headers: JSON_HEADERS,
       body: JSON.stringify({ device_id: deviceId, score: score }),
     })
-      .then(function (res) {
-        if (res.status === 401) { handlePilotUnauthorized(); return null; }
-        return res.json();
-      })
+      .then(function (res) { return res.json(); })
       .then(function (data) {
         if (!data) return;
         if (data.error) {
@@ -796,7 +787,6 @@
     });
   });
 
-  var locateBtn = document.getElementById("locate-btn");
   var locating = false;
 
   function preloadLocation() {
@@ -851,38 +841,65 @@
     );
   }
 
-  locateBtn.addEventListener("click", locateUser);
+  // ─── Toolbar collapse / expand ────────────────────────────────
 
-  var filterBtn = document.getElementById("filter-btn");
-  var filterPanel = document.getElementById("filter-panel");
+  var controlsBar = document.getElementById("controls-bar");
+  var toolbarToggleBtn = document.getElementById("toolbar-toggle-btn");
+  var toolbarCloseBtn = document.getElementById("toolbar-close-btn");
 
-  filterBtn.addEventListener("click", function (e) {
-    e.stopPropagation();
-    filterPanel.classList.toggle("collapsed");
-  });
+  function openToolbar() {
+    controlsBar.classList.remove("collapsed");
+    toolbarToggleBtn.classList.add("active");
+  }
 
-  document.addEventListener("click", function (e) {
-    if (!filterPanel.classList.contains("collapsed") &&
-        !document.getElementById("filter-dropdown").contains(e.target)) {
-      filterPanel.classList.add("collapsed");
+  function closeToolbar() {
+    controlsBar.classList.add("collapsed");
+    toolbarToggleBtn.classList.remove("active");
+  }
+
+  toolbarToggleBtn.addEventListener("click", function () {
+    if (controlsBar.classList.contains("collapsed")) {
+      openToolbar();
+    } else {
+      closeToolbar();
     }
   });
 
-  var filterCount = document.getElementById("filter-count");
+  toolbarCloseBtn.addEventListener("click", closeToolbar);
 
-  function updateFilterBtn() {
-    var count = Object.values(activeFilters).filter(Boolean).length;
-    filterBtn.classList.toggle("has-active", count > 0);
-    filterCount.textContent = count;
-    filterCount.classList.toggle("hidden", count === 0);
+  // ─── Legend panel ──────────────────────────────────────────────
+
+  var legendPanel = document.getElementById("legend-panel");
+  var legendToggleBtn = document.getElementById("legend-toggle-btn");
+  var legendPanelClose = document.getElementById("legend-panel-close");
+
+  function openLegend() {
+    legendPanel.classList.remove("hidden");
+    legendToggleBtn.classList.add("active");
   }
 
-  document.querySelectorAll(".filter-toggle").forEach(function (btn) {
+  function closeLegend() {
+    legendPanel.classList.add("hidden");
+    legendToggleBtn.classList.remove("active");
+  }
+
+  legendToggleBtn.addEventListener("click", function () {
+    if (legendPanel.classList.contains("hidden")) {
+      openLegend();
+    } else {
+      closeLegend();
+    }
+  });
+
+  legendPanelClose.addEventListener("click", closeLegend);
+
+  // ─── Filter pills ──────────────────────────────────────────────
+
+  document.querySelectorAll(".filter-pill").forEach(function (btn) {
     btn.addEventListener("click", function () {
       var filter = btn.dataset.filter;
       activeFilters[filter] = !activeFilters[filter];
       btn.classList.toggle("active");
-      updateFilterBtn();
       renderAll();
     });
   });
@@ -952,6 +969,11 @@
       layerOptions.ratingFilter = null;
       ratedBtn.classList.remove("active");
       unratedBtn.classList.remove("active");
+      rated7dBtn.classList.remove("active");
+    }
+    if (layerOptions.showNotFound) {
+      layerOptions.showNotFound = false;
+      notFoundBtn.classList.remove("active");
     }
     renderAll();
   }
@@ -1013,29 +1035,27 @@
     if (e.target === pinModal) closePinModal();
   });
 
-  var legendEl = document.getElementById("legend");
-  var legendToggle = document.getElementById("legend-toggle");
-  var legendBody = document.getElementById("legend-body");
-
-  legendEl.addEventListener("click", function () {
-    var collapsed = legendBody.classList.toggle("collapsed");
-    legendToggle.textContent = collapsed ? "▸" : "▾";
-  });
 
   var cityUniqueBtn = document.querySelector('.layer-suboption[data-option="city-unique"]');
   var ratedBtn = document.querySelector('.layer-suboption[data-option="rated"]');
   var unratedBtn = document.querySelector('.layer-suboption[data-option="unrated"]');
+  var rated7dBtn = document.querySelector('.layer-suboption[data-option="rated-7d"]');
   var countRatedEl = document.getElementById("count-rated");
   var countUnratedEl = document.getElementById("count-unrated");
+  var countRated7dEl = document.getElementById("count-rated-7d");
 
   function updateRatingCounts() {
     if (!fountainIndexLoaded) return;
-    var rated = 0, unrated = 0;
+    var rated = 0, unrated = 0, rated7d = 0;
+    var now = Date.now();
     fountainList.forEach(function (f) {
-      if (f.rating_count > 0) rated++; else unrated++;
+      if (hasUserContribution(f)) rated++; else unrated++;
+      var ts7d = f.last_contributed_at || f.last_rated_at;
+      if (ts7d && (now - new Date(ts7d).getTime()) < 7 * 86400000) rated7d++;
     });
     countRatedEl.textContent = rated;
     countUnratedEl.textContent = unrated;
+    countRated7dEl.textContent = rated7d;
   }
 
   function setRatingFilter(option) {
@@ -1043,16 +1063,19 @@
       layerOptions.ratingFilter = null;
       ratedBtn.classList.remove("active");
       unratedBtn.classList.remove("active");
+      rated7dBtn.classList.remove("active");
     } else {
       layerOptions.ratingFilter = option;
       ratedBtn.classList.toggle("active", option === "rated");
       unratedBtn.classList.toggle("active", option === "unrated");
+      rated7dBtn.classList.toggle("active", option === "rated-7d");
     }
     renderAll();
   }
 
   ratedBtn.addEventListener("click", function () { setRatingFilter("rated"); });
   unratedBtn.addEventListener("click", function () { setRatingFilter("unrated"); });
+  rated7dBtn.addEventListener("click", function () { setRatingFilter("rated-7d"); });
 
   var notFoundBtn = document.querySelector('.layer-suboption[data-option="not-found"]');
   var countNotFoundEl = document.getElementById("count-not-found");
@@ -1060,7 +1083,7 @@
   function updateNotFoundCount() {
     if (!fountainIndexLoaded || !countNotFoundEl) return;
     var count = 0;
-    fountainList.forEach(function (f) { if (f.not_found) count++; });
+    fountainList.forEach(function (f) { if (f.not_found_count > 0) count++; });
     countNotFoundEl.textContent = count;
   }
 
@@ -1098,116 +1121,8 @@
   map.on("moveend", updateCount);
 
   map.on("click", function () {
-    filterPanel.classList.add("collapsed");
-    legendBody.classList.add("collapsed");
-    legendToggle.textContent = "▸";
+    closeLegend();
   });
-
-  var PILOT_SESSION_KEY = "pilot_unlocked";
-  var PILOT_TOKEN_KEY = "pilot_token";
-
-  function isPilotUnlocked() {
-    return sessionStorage.getItem(PILOT_SESSION_KEY) === "1";
-  }
-
-  function deactivatePilotMode() {
-    pilotMode = false;
-    pilotToken = null;
-    sessionStorage.removeItem(PILOT_SESSION_KEY);
-    sessionStorage.removeItem(PILOT_TOKEN_KEY);
-    var banner = document.getElementById("request-access-banner");
-    if (banner) banner.classList.remove("hidden");
-    var feedbackBtn = document.getElementById("feedback-btn");
-    if (feedbackBtn) feedbackBtn.classList.add("hidden");
-    renderAll();
-  }
-
-  function activatePilotMode() {
-    pilotMode = true;
-    var banner = document.getElementById("request-access-banner");
-    if (banner) banner.classList.add("hidden");
-    var feedbackBtn = document.getElementById("feedback-btn");
-    if (feedbackBtn) feedbackBtn.classList.remove("hidden");
-    renderAll();
-  }
-
-  var pilotModal = document.getElementById("pilot-modal");
-  var pilotInput = document.getElementById("pilot-input");
-  var pilotError = document.getElementById("pilot-error");
-  var pilotSubmitBtn = document.getElementById("pilot-submit-btn");
-  var pilotCancelBtn = document.getElementById("pilot-cancel-btn");
-
-  function openPilotModal() {
-    pilotInput.value = "";
-    pilotError.classList.add("hidden");
-    pilotModal.classList.remove("hidden");
-    pilotInput.focus();
-  }
-
-  function closePilotModal() {
-    pilotModal.classList.add("hidden");
-    pilotInput.value = "";
-    pilotError.classList.add("hidden");
-  }
-
-  function submitPilotPin() {
-    var pin = pilotInput.value.trim();
-    if (!pin) return;
-    pilotSubmitBtn.disabled = true;
-    pilotSubmitBtn.textContent = "Checking…";
-    fetch(API_BASE + "/pilot/verify", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ pin: pin }),
-    })
-      .then(function (res) { return res.json().then(function (d) { return { ok: res.ok, data: d }; }); })
-      .then(function (r) {
-        pilotSubmitBtn.disabled = false;
-        pilotSubmitBtn.textContent = "Unlock";
-        if (r.ok) {
-          sessionStorage.setItem(PILOT_SESSION_KEY, "1");
-          pilotToken = r.data.token;
-          sessionStorage.setItem(PILOT_TOKEN_KEY, pilotToken);
-          closePilotModal();
-          activatePilotMode();
-        } else {
-          pilotError.classList.remove("hidden");
-          pilotInput.value = "";
-          pilotInput.focus();
-        }
-      })
-      .catch(function () {
-        pilotSubmitBtn.disabled = false;
-        pilotSubmitBtn.textContent = "Unlock";
-        pilotError.textContent = "Request failed. Try again.";
-        pilotError.classList.remove("hidden");
-      });
-  }
-
-  pilotSubmitBtn.addEventListener("click", submitPilotPin);
-  pilotCancelBtn.addEventListener("click", closePilotModal);
-  pilotInput.addEventListener("keydown", function (e) {
-    if (e.key === "Enter") submitPilotPin();
-    if (e.key === "Escape") closePilotModal();
-  });
-  pilotModal.addEventListener("click", function (e) {
-    if (e.target === pilotModal) closePilotModal();
-  });
-
-  var pilotUnlockBtn = document.getElementById("pilot-unlock-btn");
-  if (pilotUnlockBtn) {
-    pilotUnlockBtn.addEventListener("click", openPilotModal);
-  }
-
-  function initPilotMode() {
-    if (isPilotUnlocked()) {
-      pilotToken = sessionStorage.getItem(PILOT_TOKEN_KEY);
-      activatePilotMode();
-    } else {
-      var banner = document.getElementById("request-access-banner");
-      if (banner) banner.classList.remove("hidden");
-    }
-  }
 
   // ─── Hamburger menu ───────────────────────────────────────────
 
@@ -1250,10 +1165,13 @@
 
   var contentCache = {};
 
+  var contentModalBox = document.getElementById("content-modal-box");
+
   function openContentModal(key) {
     var title = MODAL_TITLES[key];
     if (!title) return;
     contentModalTitle.textContent = title;
+    contentModalBox.dataset.key = key;
     contentModalBody.scrollTop = 0;
     history.replaceState(null, "", "#" + key);
     if (contentCache[key]) {
@@ -1308,7 +1226,35 @@
     }
   });
 
-  initPilotMode();
+  var WELCOME_DISMISSED_KEY = "welcome_dismissed";
+  var welcomeModal = document.getElementById("welcome-modal");
+  var welcomeModalBody = document.getElementById("welcome-modal-body");
+  var welcomeModalClose = document.getElementById("welcome-modal-close");
+
+  function closeWelcomeModal() {
+    welcomeModal.classList.add("hidden");
+    localStorage.setItem(WELCOME_DISMISSED_KEY, "1");
+  }
+
+  welcomeModalClose.addEventListener("click", closeWelcomeModal);
+  welcomeModal.addEventListener("click", function (e) {
+    if (e.target === welcomeModal) closeWelcomeModal();
+  });
+
+  if (!localStorage.getItem(WELCOME_DISMISSED_KEY)) {
+    welcomeModal.classList.remove("hidden");
+    fetch("page_content/welcome.html")
+      .then(function (res) { return res.text(); })
+      .then(function (html) {
+        welcomeModalBody.innerHTML = html;
+        var closeLink = document.getElementById("welcome-close-link");
+        if (closeLink) closeLink.addEventListener("click", function (e) {
+          e.preventDefault();
+          closeWelcomeModal();
+        });
+      });
+  }
+
   fetchFountains();
   preloadLocation();
 })();
