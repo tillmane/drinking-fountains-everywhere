@@ -16,13 +16,19 @@ Access to clean water is a basic human right, yet even in urban areas with high 
 
 ## Release History
 
-### V3.5: Remove Pilot Code Admin Updates
-- Remove the rating access gate so that anyone can rate fountains
-- Add a "Fountains rated past 7 days" filter to the Admin menu
-- Move the Locate Me button from the top bar to just above the +/- buttons. Make it the same size as those buttons.
-- Add a closeable notification bar across the top just below the toolbar with a welcome to the Fountains for All Pilot message and link to the About Fountains for All screen
-- Fix the Admin Not Found / Decommissioned filter (currently showing 0 fountains)
-- The Admin Rated filter should include all fountains that have been rated, had attributes updated, reported off, OR marked not found/decommissioned. The Unrated filter should include the inverse
+### V3.5: Open Contributions + Visual Redesign: August 4, 2026
+- Remove all pilot gating — anyone can rate, report, and edit attributes without a PIN
+- Visual redesign:
+  - Inter + Big Shoulders Inline fonts
+  - Dark navy branding bar with "Fountains For All" title, hamburger menu, and icon buttons for search/filters and legend
+  - Collapsible toolbar with search box and inline filter pills (Accessible, Bottle Filler, Dog Bowl with icons)
+  - Floating legend panel toggled from branding bar
+  - First-visit welcome modal (replaces banner) sourced from `page_content/welcome.html`
+- Locate Me button moved to Leaflet custom control above +/− zoom buttons
+- Admin updates:
+  - Add "Rated past 7 days" filter using new `last_contributed_at` field (max timestamp across all contribution types)
+  - Broaden Rated/Unrated filter to include ratings, attribute edits, off reports, and not-found reports
+  - Fix Not Found / Decommissioned filter (was checking threshold-reached boolean instead of report count)
 
 ### V3.2: Minor Bugs and Annoyances, Fixed: July 3, 2026
 - Rating pop-up should always be on top. Currently it's underneath the zoom controls
