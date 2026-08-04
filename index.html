@@ -5,6 +5,9 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>Seattle Drinking Fountains</title>
   <link rel="icon" type="image/svg+xml" href="favicon.svg">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Big+Shoulders+Inline:wght@400&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
   <link rel="stylesheet" href="style.css">
 </head>
@@ -36,22 +39,23 @@
   <!-- ─── Content modals ───────────────────────────────────── -->
 
   <div id="content-modal" class="hidden">
-    <div id="content-modal-box">
-      <div id="content-modal-header">
-        <span id="content-modal-title"></span>
-        <button id="content-modal-close" aria-label="Close">
+    <div id="content-modal-box" class="modal-box">
+      <div id="content-modal-header" class="modal-header">
+        <span id="content-modal-title" class="modal-title"></span>
+        <button id="content-modal-close" class="modal-close" aria-label="Close">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
             <line x1="18" y1="6" x2="6" y2="18"/>
             <line x1="6" y1="6" x2="18" y2="18"/>
           </svg>
         </button>
       </div>
-      <div id="content-modal-body"></div>
+      <div id="content-modal-body" class="modal-body"></div>
     </div>
   </div>
 
-  <div id="controls-bar">
+  <!-- ─── Branding bar ────────────────────────────────────────── -->
 
+  <div id="branding-bar">
     <button id="hamburger-btn" aria-label="Menu" title="Menu">
       <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
         <line x1="3" y1="6" x2="21" y2="6"/>
@@ -60,12 +64,31 @@
       </svg>
     </button>
 
-    <button id="locate-btn" aria-label="Use my location" title="Use my location">
-      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-        <circle cx="12" cy="12" r="9"/>
-        <path fill="currentColor" stroke="none" d="M12 5 L17 16 L12 13 L7 16 Z" transform="rotate(22.5 12 12)"/>
-      </svg>
-    </button>
+    <span id="branding-title">Fountains For All</span>
+
+    <div id="branding-actions">
+      <button id="toolbar-toggle-btn" class="active" aria-label="Search and filters" title="Search and filters">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="11" cy="11" r="8"/>
+          <line x1="21" y1="21" x2="16.65" y2="16.65"/>
+        </svg>
+      </button>
+      <button id="legend-toggle-btn" aria-label="Legend" title="Legend">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="3" y="4" width="4" height="4" rx="1"/>
+          <line x1="10" y1="6" x2="21" y2="6"/>
+          <rect x="3" y="11" width="4" height="4" rx="1"/>
+          <line x1="10" y1="13" x2="21" y2="13"/>
+          <rect x="3" y="18" width="4" height="4" rx="1"/>
+          <line x1="10" y1="20" x2="21" y2="20"/>
+        </svg>
+      </button>
+    </div>
+  </div>
+
+  <!-- ─── Collapsible toolbar ──────────────────────────────────── -->
+
+  <div id="controls-bar">
 
     <form id="search-form">
       <input
@@ -76,69 +99,87 @@
         enterkeyhint="search"
       >
       <button type="submit" id="search-btn" aria-label="Search">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
           <circle cx="11" cy="11" r="8"/>
           <line x1="21" y1="21" x2="16.65" y2="16.65"/>
         </svg>
       </button>
     </form>
 
-    <div id="filter-dropdown">
-      <button id="filter-btn" aria-label="Filters" title="Filters">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <line x1="4" y1="6" x2="20" y2="6"/>
-          <line x1="8" y1="12" x2="16" y2="12"/>
-          <line x1="11" y1="18" x2="13" y2="18"/>
-        </svg>
-        Filters
-        <span id="filter-count" class="hidden"></span>
+    <div id="filter-pills">
+      <button class="filter-pill" data-filter="accessible" aria-label="Accessible" title="Accessible">
+        <svg fill="currentColor" width="14px" height="14px" viewBox="0 0 0.42 0.42" xmlns="http://www.w3.org/2000/svg"><path d="M0.21 0.114a0.035 0.035 0 1 0 -0.035 -0.035 0.035 0.035 0 0 0 0.035 0.035m0.131 0.245h-0.018v-0.088a0.018 0.018 0 0 0 -0.018 -0.018h-0.088v-0.035h0.088a0.018 0.018 0 0 0 0 -0.035h-0.088v-0.035a0.018 0.018 0 0 0 -0.035 0v0.123a0.018 0.018 0 0 0 0.018 0.018h0.088v0.088a0.018 0.018 0 0 0 0.018 0.018h0.035a0.018 0.018 0 0 0 0 -0.035m-0.119 -0.028a0.07 0.07 0 0 1 -0.126 -0.042 0.07 0.07 0 0 1 0.042 -0.064A0.018 0.018 0 1 0 0.124 0.193a0.105 0.105 0 1 0 0.126 0.159 0.018 0.018 0 0 0 -0.028 -0.021"/></svg>
+        Accessible
       </button>
-      <div id="filter-panel" class="collapsed">
-        <button class="filter-toggle" data-filter="accessible">Accessible</button>
-        <button class="filter-toggle" data-filter="bottle">Bottle Filler</button>
-        <button class="filter-toggle" data-filter="dog">Dog Bowl</button>
-      </div>
+      <button class="filter-pill" data-filter="bottle" aria-label="Bottle filler" title="Bottle filler">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M8 2h8"/>
+          <path d="M9 2v2.789a4 4 0 0 1-.672 2.219l-.656.984A4 4 0 0 0 7 10.212V20a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2v-9.789a4 4 0 0 0-.672-2.219l-.656-.984A4 4 0 0 1 15 4.788V2"/>
+        </svg>
+        Bottle Filler
+      </button>
+      <button class="filter-pill" data-filter="dog" aria-label="Dog bowl" title="Dog bowl">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M10 5.172C10 3.782 8.423 2.679 6.5 3c-2.823.47-4.113 6.006-4 7 .08.703 1.725 1 3.5 1C7.555 11 10 10.5 10 10"/>
+          <path d="M14.5 5.172c0-1.39 1.577-2.493 3.5-2.172 2.823.47 4.113 6.006 4 7-.08.703-1.725 1-3.5 1-1.555 0-4-.5-4-1"/>
+          <path d="M8 14v.5"/>
+          <path d="M16 14v.5"/>
+          <path d="M11.25 16.25h1.5L12 17l-.75-.75Z"/>
+          <path d="M4.42 11.247A13.152 13.152 0 0 0 4 14.556C4 18.728 7.582 21 12 21s8-2.272 8-6.444c0-1.061-.162-2.2-.493-3.309"/>
+        </svg>
+        Dog Bowl
+      </button>
     </div>
 
-    <div id="controls-right">
-      <div id="legend">
-        <div id="legend-header">
-          <span id="legend-title">Legend</span>
-          <button id="legend-toggle" aria-label="Expand legend">▸</button>
-        </div>
-        <div id="legend-body" class="collapsed">
-          <div class="legend-row">
-            <svg width="28" height="36" viewBox="0 0 28 36" xmlns="http://www.w3.org/2000/svg"><path d="M14 0C6.27 0 0 6.27 0 14c0 10.5 14 22 14 22s14-11.5 14-22C28 6.27 21.73 0 14 0z" fill="#9e9e9e" stroke="#fff" stroke-width="1.5"/><text x="14" y="19" text-anchor="middle" fill="#fff" font-size="15" font-weight="bold" font-family="Arial, sans-serif">?</text></svg>
-            Not yet rated
-          </div>
-          <div class="legend-row">
-            <svg width="28" height="36" viewBox="0 0 28 36" xmlns="http://www.w3.org/2000/svg"><path d="M14 0C6.27 0 0 6.27 0 14c0 10.5 14 22 14 22s14-11.5 14-22C28 6.27 21.73 0 14 0z" fill="#2563eb" stroke="#fff" stroke-width="1.5"/><text x="14" y="20" text-anchor="middle" font-size="14" font-family="Apple Color Emoji, Segoe UI Emoji, sans-serif">👍</text></svg>
-            Mostly 👍
-          </div>
-          <div class="legend-row">
-            <svg width="28" height="36" viewBox="0 0 28 36" xmlns="http://www.w3.org/2000/svg"><path d="M14 0C6.27 0 0 6.27 0 14c0 10.5 14 22 14 22s14-11.5 14-22C28 6.27 21.73 0 14 0z" fill="#2563eb" stroke="#fff" stroke-width="1.5"/><text x="14" y="20" text-anchor="middle" font-size="14" font-family="Apple Color Emoji, Segoe UI Emoji, sans-serif">👎</text></svg>
-            Mostly 👎
-          </div>
-          <div class="legend-row">
-            <svg width="28" height="36" viewBox="0 0 28 36" xmlns="http://www.w3.org/2000/svg"><path d="M14 0C6.27 0 0 6.27 0 14c0 10.5 14 22 14 22s14-11.5 14-22C28 6.27 21.73 0 14 0z" fill="#c62828" stroke="#fff" stroke-width="1.5"/><line x1="9" y1="10" x2="19" y2="20" stroke="#fff" stroke-width="2.2" stroke-linecap="round" opacity="0.9"/><line x1="19" y1="10" x2="9" y2="20" stroke="#fff" stroke-width="2.2" stroke-linecap="round" opacity="0.9"/></svg>
-            Shut off
-          </div>
-          <div class="legend-row">
-            <svg width="28" height="36" viewBox="0 0 28 36" xmlns="http://www.w3.org/2000/svg"><path d="M14 0C6.27 0 0 6.27 0 14c0 10.5 14 22 14 22s14-11.5 14-22C28 6.27 21.73 0 14 0z" fill="#e67e22" stroke="#fff" stroke-width="1.5"/><line x1="9" y1="10" x2="19" y2="20" stroke="#fff" stroke-width="2.2" stroke-linecap="round" opacity="0.9"/><line x1="19" y1="10" x2="9" y2="20" stroke="#fff" stroke-width="2.2" stroke-linecap="round" opacity="0.9"/></svg>
-            Reported off
-          </div>
-          <div class="legend-row">
-            <svg width="28" height="36" viewBox="0 0 28 36" xmlns="http://www.w3.org/2000/svg"><path d="M14 0C6.27 0 0 6.27 0 14c0 10.5 14 22 14 22s14-11.5 14-22C28 6.27 21.73 0 14 0z" fill="#e67e22" stroke="#fff" stroke-width="1.5"/><text x="14" y="19" text-anchor="middle" fill="#fff" font-size="15" font-weight="bold" font-family="Arial, sans-serif" opacity="0.9">?</text></svg>
-            Reported not found / decommissioned
-          </div>
-          <div class="legend-row legend-admin-row hidden">
-            <svg width="28" height="36" viewBox="0 0 28 36" xmlns="http://www.w3.org/2000/svg"><path d="M14 0C6.27 0 0 6.27 0 14c0 10.5 14 22 14 22s14-11.5 14-22C28 6.27 21.73 0 14 0z" fill="#0891b2" stroke="#fff" stroke-width="1.5"/><text x="14" y="19" text-anchor="middle" fill="#fff" font-size="15" font-weight="bold" font-family="Arial, sans-serif">?</text></svg>
-            OpenStreetMap
-          </div>
-        </div>
-      </div>
-    </div>
+    <button id="toolbar-close-btn" aria-label="Close toolbar">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
+        <line x1="18" y1="6" x2="6" y2="18"/>
+        <line x1="6" y1="6" x2="18" y2="18"/>
+      </svg>
+    </button>
 
+  </div>
+
+  <!-- ─── Legend panel ──────────────────────────────────────────── -->
+
+  <div id="legend-panel" class="hidden">
+    <div id="legend-panel-header">
+      <span>Legend</span>
+      <button id="legend-panel-close" aria-label="Close legend">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
+          <line x1="18" y1="6" x2="6" y2="18"/>
+          <line x1="6" y1="6" x2="18" y2="18"/>
+        </svg>
+      </button>
+    </div>
+    <div class="legend-row">
+      <svg width="28" height="36" viewBox="0 0 28 36" xmlns="http://www.w3.org/2000/svg"><path d="M14 0C6.27 0 0 6.27 0 14c0 10.5 14 22 14 22s14-11.5 14-22C28 6.27 21.73 0 14 0z" fill="#9e9e9e" stroke="#fff" stroke-width="1.5"/><text x="14" y="19" text-anchor="middle" fill="#fff" font-size="15" font-weight="bold" font-family="Arial, sans-serif">?</text></svg>
+      Not yet rated
+    </div>
+    <div class="legend-row">
+      <svg width="28" height="36" viewBox="0 0 28 36" xmlns="http://www.w3.org/2000/svg"><path d="M14 0C6.27 0 0 6.27 0 14c0 10.5 14 22 14 22s14-11.5 14-22C28 6.27 21.73 0 14 0z" fill="#2563eb" stroke="#fff" stroke-width="1.5"/><text x="14" y="20" text-anchor="middle" font-size="14" font-family="Apple Color Emoji, Segoe UI Emoji, sans-serif">👍</text></svg>
+      Mostly 👍
+    </div>
+    <div class="legend-row">
+      <svg width="28" height="36" viewBox="0 0 28 36" xmlns="http://www.w3.org/2000/svg"><path d="M14 0C6.27 0 0 6.27 0 14c0 10.5 14 22 14 22s14-11.5 14-22C28 6.27 21.73 0 14 0z" fill="#2563eb" stroke="#fff" stroke-width="1.5"/><text x="14" y="20" text-anchor="middle" font-size="14" font-family="Apple Color Emoji, Segoe UI Emoji, sans-serif">👎</text></svg>
+      Mostly 👎
+    </div>
+    <div class="legend-row">
+      <svg width="28" height="36" viewBox="0 0 28 36" xmlns="http://www.w3.org/2000/svg"><path d="M14 0C6.27 0 0 6.27 0 14c0 10.5 14 22 14 22s14-11.5 14-22C28 6.27 21.73 0 14 0z" fill="#c62828" stroke="#fff" stroke-width="1.5"/><line x1="9" y1="10" x2="19" y2="20" stroke="#fff" stroke-width="2.2" stroke-linecap="round" opacity="0.9"/><line x1="19" y1="10" x2="9" y2="20" stroke="#fff" stroke-width="2.2" stroke-linecap="round" opacity="0.9"/></svg>
+      Shut off
+    </div>
+    <div class="legend-row">
+      <svg width="28" height="36" viewBox="0 0 28 36" xmlns="http://www.w3.org/2000/svg"><path d="M14 0C6.27 0 0 6.27 0 14c0 10.5 14 22 14 22s14-11.5 14-22C28 6.27 21.73 0 14 0z" fill="#e67e22" stroke="#fff" stroke-width="1.5"/><line x1="9" y1="10" x2="19" y2="20" stroke="#fff" stroke-width="2.2" stroke-linecap="round" opacity="0.9"/><line x1="19" y1="10" x2="9" y2="20" stroke="#fff" stroke-width="2.2" stroke-linecap="round" opacity="0.9"/></svg>
+      Reported off
+    </div>
+    <div class="legend-row">
+      <svg width="28" height="36" viewBox="0 0 28 36" xmlns="http://www.w3.org/2000/svg"><path d="M14 0C6.27 0 0 6.27 0 14c0 10.5 14 22 14 22s14-11.5 14-22C28 6.27 21.73 0 14 0z" fill="#e67e22" stroke="#fff" stroke-width="1.5"/><text x="14" y="19" text-anchor="middle" fill="#fff" font-size="15" font-weight="bold" font-family="Arial, sans-serif" opacity="0.9">?</text></svg>
+      Reported not found / decommissioned
+    </div>
+    <div class="legend-row legend-admin-row hidden">
+      <svg width="28" height="36" viewBox="0 0 28 36" xmlns="http://www.w3.org/2000/svg"><path d="M14 0C6.27 0 0 6.27 0 14c0 10.5 14 22 14 22s14-11.5 14-22C28 6.27 21.73 0 14 0z" fill="#0891b2" stroke="#fff" stroke-width="1.5"/><text x="14" y="19" text-anchor="middle" fill="#fff" font-size="15" font-weight="bold" font-family="Arial, sans-serif">?</text></svg>
+      OpenStreetMap
+    </div>
   </div>
 
   <div id="confirm-modal" class="hidden">
@@ -147,18 +188,6 @@
       <div id="confirm-modal-actions">
         <button id="confirm-cancel-btn">Cancel</button>
         <button id="confirm-ok-btn">Confirm</button>
-      </div>
-    </div>
-  </div>
-
-  <div id="pilot-modal" class="hidden">
-    <div id="pin-modal-box">
-      <div id="pin-modal-title">Pilot Access</div>
-      <input id="pilot-input" type="password" maxlength="32" autocomplete="off" placeholder="Enter pilot code">
-      <div id="pilot-error" class="hidden">Incorrect code</div>
-      <div id="pin-modal-actions">
-        <button id="pilot-cancel-btn">Cancel</button>
-        <button id="pilot-submit-btn">Unlock</button>
       </div>
     </div>
   </div>
@@ -175,15 +204,26 @@
     </div>
   </div>
 
-  <div id="request-access-banner" class="hidden">
-    Fountains For All pilot members <button id="pilot-unlock-btn" class="banner-btn">click here</button> to rate fountains and submit reports.<br>Want to join the Fountains For All pilot group to contribute ratings and provide feedback? <a id="request-access-link" href="https://docs.google.com/forms/d/e/1FAIpQLSct5j7wwDKQetU40e9zEkbe-7Y6GoZ4iV6cPy2ZmP09iH-NgA/viewform?usp=dialog" target="_blank" rel="noopener">Request pilot access</a>
+  <div id="welcome-modal" class="hidden">
+    <div id="welcome-modal-box" class="modal-box">
+      <div id="welcome-modal-header" class="modal-header">
+        <span id="welcome-modal-title" class="modal-title">Fountains For All</span>
+        <button id="welcome-modal-close" class="modal-close" aria-label="Close">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
+            <line x1="18" y1="6" x2="6" y2="18"/>
+            <line x1="6" y1="6" x2="18" y2="18"/>
+          </svg>
+        </button>
+      </div>
+      <div id="welcome-modal-body" class="modal-body"></div>
+    </div>
   </div>
 
   <div id="map"></div>
 
   <div id="fountain-count"></div>
 
-  <button id="feedback-btn" class="hidden" aria-label="Give feedback">💬 Share your feedback!</button>
+  <button id="feedback-btn" aria-label="Give feedback">💬 Share your feedback!</button>
 
   <div id="layer-control" class="hidden">
     <div id="layer-control-header">Layers</div>
@@ -203,6 +243,9 @@
     </button>
     <button class="layer-suboption" data-option="unrated">
       <span class="checkbox"></span> Unrated <span class="rating-filter-count" id="count-unrated"></span>
+    </button>
+    <button class="layer-suboption" data-option="rated-7d">
+      <span class="checkbox"></span> Rated past 7 days <span class="rating-filter-count" id="count-rated-7d"></span>
     </button>
     <hr class="layer-control-divider">
     <div id="layer-control-header">Not Found / Decommissioned</div>

@@ -16,14 +16,22 @@ Access to clean water is a basic human right, yet even in urban areas with high 
 
 ## Release History
 
-### V3.2: Minor Bugs and Annoyances, Fixed (pushed July 3, 2026)
+### V3.5: Remove Pilot Code Admin Updates
+- Remove the rating access gate so that anyone can rate fountains
+- Add a "Fountains rated past 7 days" filter to the Admin menu
+- Move the Locate Me button from the top bar to just above the +/- buttons. Make it the same size as those buttons.
+- Add a closeable notification bar across the top just below the toolbar with a welcome to the Fountains for All Pilot message and link to the About Fountains for All screen
+- Fix the Admin Not Found / Decommissioned filter (currently showing 0 fountains)
+- The Admin Rated filter should include all fountains that have been rated, had attributes updated, reported off, OR marked not found/decommissioned. The Unrated filter should include the inverse
+
+### V3.2: Minor Bugs and Annoyances, Fixed: July 3, 2026
 - Rating pop-up should always be on top. Currently it's underneath the zoom controls
 - Share feedback CTA overlaps the # of fountains in view label
 - Contribution dashboard
   - time frames should be in Pacific/Los Angeles time zone
   - add a pie chart that shows % of all merged fountains: not yet rated or reported off or not found, mostly thumbs up, mostly thumbs down, reported off, reported not found/decommissioned
 
-### V3.1: Reporting on Reporting (pushed June 24, 2026)
+### V3.1: Reporting on Reporting: June 24, 2026
 - UX Updates
   - Change "Not Found" to "Not Found / Decommissioned" where decommissioned means elements of the fountain such as pedestal or cabinet still remain, but the fixtures (basin, spigot, handle, etc) are removed
   - Add tool tips to Report Off and Not Found / Decommissioned buttons
@@ -40,7 +48,7 @@ Access to clean water is a basic human right, yet even in urban areas with high 
     - Use a hash in the URL so that the dashboard can be opened via deep link
     - When accessed via deep link, the dashboard still requires Admin PIN access if not already in Admin mode
 
-### V3.0: Pilot Launch (pushed June 23, 2026)
+### V3.0: Pilot Launch: June 23, 2026
 - Read Access for All
   - Allow anonymous users to be able to view the Pilot
   - Include an option to request Pilot access
@@ -57,7 +65,7 @@ Access to clean water is a basic human right, yet even in urban areas with high 
 - Add usage reporting dashboard
 - Production monitoring of request traffic and storage size
 
-### V2.4: A Simpler Rating Methodology (pushed June 14, 2026)
+### V2.4: A Simpler Rating Methodology: June 14, 2026
 - Bugs/Dumb Stuff
   - Accessible filter doesn't work. Probably not pointing to the new attribute.
 - Change Ratings Structure
@@ -73,7 +81,7 @@ Access to clean water is a basic human right, yet even in urban areas with high 
   - When a user clicks Not Found, show a dialog that says, "Are you sure this fountain is missing? Reporting it Not Found may remove it from the map."
   - Not Found fountains should not show on the map after 3 reports, except as a Layer in Admin mode
 
-### V2.3: Make It Better for Pilot Users (pushed June 10, 2026)
+### V2.3: Make It Better for Pilot Users: June 10, 2026
 - Bugs/Dumb Stuff
   - Add ability to rate Seattle City GIS fountains
 - UX Improvements
@@ -88,7 +96,7 @@ Access to clean water is a basic human right, yet even in urban areas with high 
   - Add admin filter to show edited and unedited fountains with counts of each
   - Secure Admin mode (authentication/PIN for attribute editing)
 
-### V2.2: Publish to Production and Ready for Pilot Users (pushed June 2, 2026)
+### V2.2: Publish to Production and Ready for Pilot Users: June 2, 2026
 - Publish frontend to Cloudflare Pages at `fountainsforall.urbanfreerunning.com`
 - Gate access with Cloudflare Access (email allowlist)
 - Structured request logging on all Worker endpoints
@@ -98,7 +106,7 @@ Access to clean water is a basic human right, yet even in urban areas with high 
 - D1 backups: use D1 Time Travel (point-in-time restore, 30-day retention), plus scheduled snapshots to R2 objects
 - Persistent request logging (pre-pilot): add D1 `request_log` table before opening to pilot group
 
-### V2.1: Add User Ratings Capability (pushed May 22, 2026)
+### V2.1: Add User Ratings Capability: May 22, 2026
 - Allow users to submit water fountain ratings on a scale of 1 to 5
 - Show the date of the last rating
 - Anonymous ratings using device identifier (localStorage UUID) for abuse control; one rating per device per fountain (upsert)
@@ -111,7 +119,7 @@ Access to clean water is a basic human right, yet even in urban areas with high 
 - User-contributed attributes stored separately from source data in D1; merged at display time and for filtering
 - Backend: Cloudflare Workers + D1
 
-### V1: POC (April 29, 2026)
+### V1: POC: April 29, 2026
 - Use publicly available data source(s)
 - Allow searching for nearby water fountains by address, intersection, or landmark
 - Give an indication whether a water fountain is currently expected to be running or if it has been shut off
@@ -216,23 +224,12 @@ All changes are reviewed locally before being pushed to `main`. Pushing to `main
 
 > **Note:** The frontend and worker deploy independently. If a change requires both (e.g. a new API endpoint), push `main` first to deploy the frontend, then run `npm run deploy` for the worker. Forgetting the worker deploy will leave the two out of sync.
 
-**Simulating pilot mode locally:**
+**Forcing the welcome modal to reappear:**
 
-The app is publicly accessible. Click "click here" in the banner and enter the pilot PIN to unlock write mode — this works the same locally as in production.
-
-To skip the modal and activate pilot mode directly from the DevTools console (note: write requests will be rejected by the Worker without a valid token — use the normal PIN flow to get a real session):
+The welcome modal is dismissed permanently via `localStorage`. To force it to show again (e.g. for testing):
 
 ```javascript
-sessionStorage.setItem("pilot_unlocked", "1");
-location.reload();
-```
-
-To return to anonymous read-only mode:
-
-```javascript
-sessionStorage.removeItem("pilot_unlocked");
-sessionStorage.removeItem("pilot_token");
-location.reload();
+localStorage.removeItem("welcome_dismissed"); location.reload();
 ```
 
 **Worker changes:**

@@ -6,7 +6,7 @@
 
 html, body {
   height: 100%;
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
   overflow: hidden;
   -webkit-tap-highlight-color: transparent;
   display: flex;
@@ -112,9 +112,10 @@ html, body {
   margin: 8px 0;
 }
 
-/* ─── Content modal ────────────────────────────────────────── */
+/* ─── Shared modal styles ──────────────────────────────────── */
 
-#content-modal {
+#content-modal,
+#welcome-modal {
   position: fixed;
   inset: 0;
   z-index: 2000;
@@ -125,11 +126,12 @@ html, body {
   padding: 20px;
 }
 
-#content-modal.hidden {
+#content-modal.hidden,
+#welcome-modal.hidden {
   display: none;
 }
 
-#content-modal-box {
+.modal-box {
   background: #fff;
   border-radius: 12px;
   width: 100%;
@@ -141,28 +143,39 @@ html, body {
   overflow: hidden;
 }
 
-#content-modal-header {
+.modal-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
   padding: 16px 20px 14px;
-  border-bottom: 1px solid #eee;
+  background: #1a1a2e;
   flex-shrink: 0;
 }
 
-#content-modal-title {
+.modal-title {
   font-size: 16px;
   font-weight: 600;
-  color: #1a1a1a;
+  color: #68d0ff;
 }
 
-#content-modal-close {
+#content-modal-box[data-key="about"] .modal-title,
+#welcome-modal-box .modal-title {
+  font-family: 'Big Shoulders Inline', cursive;
+  font-size: 22px;
+  font-weight: 600;
+}
+
+#welcome-modal-box .modal-title {
+  font-size: 26px;
+}
+
+.modal-close {
   width: 32px;
   height: 32px;
   border: none;
   background: none;
   cursor: pointer;
-  color: #888;
+  color: #fff;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -171,12 +184,11 @@ html, body {
   padding: 0;
 }
 
-#content-modal-close:hover {
-  background: #f0f0f0;
-  color: #333;
+.modal-close:hover {
+  background: rgba(255,255,255,0.15);
 }
 
-#content-modal-body {
+.modal-body {
   padding: 20px 24px 24px;
   overflow-y: auto;
   font-size: 14px;
@@ -184,14 +196,14 @@ html, body {
   color: #333;
 }
 
-#content-modal-body h1 {
+.modal-body h1 {
   font-size: 18px;
   font-weight: 700;
   margin-bottom: 12px;
   color: #1a1a1a;
 }
 
-#content-modal-body h2 {
+.modal-body h2 {
   font-size: 14px;
   font-weight: 700;
   margin-top: 18px;
@@ -199,46 +211,46 @@ html, body {
   color: #1a1a1a;
 }
 
-#content-modal-body p {
+.modal-body p {
   margin-bottom: 10px;
 }
 
-#content-modal-body ul {
+.modal-body ul {
   margin: 6px 0 10px 20px;
 }
 
-#content-modal-body li {
+.modal-body li {
   margin-bottom: 4px;
 }
 
-#content-modal-body a {
+.modal-body a {
   color: #1a73e8;
   text-decoration: none;
 }
 
-#content-modal-body a:hover {
+.modal-body a:hover {
   text-decoration: underline;
 }
 
-#content-modal-body hr {
+.modal-body hr {
   border: none;
   border-top: 1px solid #ccc;
   margin: 18px 0;
 }
 
-#content-modal-body em {
+.modal-body em {
   font-style: italic;
   color: #555;
 }
 
-#content-modal-body strong {
+.modal-body strong {
   font-weight: 600;
   color: #1a1a1a;
 }
 
 .content-modal-cta,
-#content-modal-body a.content-modal-cta {
-  display:  inline-block;
+.modal-body a.content-modal-cta {
+  display: inline-block;
   margin-top: 1px;
   padding: 4px 12px;
   background: #1a73e8;
@@ -250,7 +262,7 @@ html, body {
 }
 
 .content-modal-cta:hover,
-#content-modal-body a.content-modal-cta:hover {
+.modal-body a.content-modal-cta:hover {
   background: #1558c0;
   color: #fff;
   text-decoration: none;
@@ -264,7 +276,7 @@ html, body {
   margin-bottom: 16px;
 }
 
-#content-modal-body blockquote {
+.modal-body blockquote {
   border: 2px solid #1a73e8;
   background: #f0f4ff;
   margin: 14px 0;
@@ -274,15 +286,16 @@ html, body {
   text-align: center;
 }
 
-/* ─── Controls bar ─────────────────────────────────────────── */
+/* ─── Branding bar ─────────────────────────────────────────── */
 
-#controls-bar {
+#branding-bar {
   flex-shrink: 0;
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 8px 12px;
-  background: #4a4a4a;
+  padding: 0 10px;
+  height: 52px;
+  background: #1a1a2e;
   z-index: 1000;
 }
 
@@ -292,7 +305,7 @@ html, body {
   height: 40px;
   border-radius: 8px;
   border: none;
-  background: rgba(255,255,255,0.15);
+  background: rgba(255,255,255,0.1);
   cursor: pointer;
   display: flex;
   align-items: center;
@@ -302,16 +315,35 @@ html, body {
 }
 
 #hamburger-btn:hover {
-  background: rgba(255,255,255,0.25);
+  background: rgba(255,255,255,0.18);
 }
 
-#locate-btn {
+#branding-title {
+  flex: 1;
+  font-size: 28px;
+  font-weight: 600;
+  font-family: 'Big Shoulders Inline', cursive;
+  color: #68d0ff;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  text-align: center;
+}
+
+#branding-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
   flex-shrink: 0;
+}
+
+#toolbar-toggle-btn,
+#legend-toggle-btn {
   width: 40px;
   height: 40px;
   border-radius: 8px;
   border: none;
-  background: rgba(255,255,255,0.15);
+  background: rgba(255,255,255,0.1);
   cursor: pointer;
   display: flex;
   align-items: center;
@@ -320,12 +352,152 @@ html, body {
   transition: background 0.15s;
 }
 
-#locate-btn:hover {
-  background: rgba(255,255,255,0.25);
+#toolbar-toggle-btn:hover,
+#legend-toggle-btn:hover {
+  background: rgba(255,255,255,0.18);
 }
 
-#locate-btn.locating {
+#toolbar-toggle-btn.active,
+#legend-toggle-btn.active {
+  background: #0ea5e9;
   color: #fff;
+}
+
+/* ─── Collapsible toolbar ──────────────────────────────────── */
+
+#controls-bar {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  background: #f8f9fa;
+  border-bottom: 1px solid #e5e7eb;
+  z-index: 999;
+}
+
+#controls-bar.collapsed {
+  display: none;
+}
+
+#search-form {
+  flex: 1;
+  display: flex;
+  background: #fff;
+  border: 1.5px solid #e5e7eb;
+  border-radius: 8px;
+  overflow: hidden;
+  min-width: 0;
+  transition: border-color 0.15s;
+}
+
+#search-form:focus-within {
+  border-color: #0ea5e9;
+}
+
+#search-input {
+  flex: 1;
+  border: none;
+  outline: none;
+  padding: 9px 12px;
+  font-size: 14px;
+  font-family: inherit;
+  background: transparent;
+  min-width: 0;
+  color: #1a1a1a;
+}
+
+#search-input::placeholder {
+  color: #9ca3af;
+}
+
+#search-btn {
+  border: none;
+  background: transparent;
+  padding: 0 10px;
+  cursor: pointer;
+  color: #9ca3af;
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+  transition: color 0.15s;
+}
+
+#search-btn:hover,
+#search-btn:active {
+  color: #0ea5e9;
+}
+
+/* ─── Filter pills ─────────────────────────────────────────── */
+
+#filter-pills {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.filter-pill {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  height: 34px;
+  padding: 0 10px;
+  border-radius: 17px;
+  border: 1.5px solid #e5e7eb;
+  background: #fff;
+  color: #4b5563;
+  font-size: 13px;
+  font-weight: 500;
+  font-family: inherit;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
+}
+
+.filter-pill:hover {
+  border-color: #0ea5e9;
+  color: #0ea5e9;
+}
+
+.filter-pill.active {
+  background: #0ea5e9;
+  border-color: #0ea5e9;
+  color: #fff;
+}
+
+#toolbar-close-btn {
+  flex-shrink: 0;
+  width: 34px;
+  height: 34px;
+  border-radius: 8px;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #9ca3af;
+  transition: background 0.15s, color 0.15s;
+}
+
+#toolbar-close-btn:hover {
+  background: #f0f0f0;
+  color: #4b5563;
+}
+
+/* ─── Locate button (Leaflet custom control above zoom) ────── */
+
+.leaflet-control-locate a {
+  width: 36px !important;
+  height: 36px !important;
+  line-height: 36px !important;
+  display: flex !important;
+  align-items: center;
+  justify-content: center;
+}
+
+.leaflet-control-locate a.locating svg {
   animation: pulse 1s ease-in-out infinite;
 }
 
@@ -334,199 +506,56 @@ html, body {
   50% { opacity: 0.3; }
 }
 
-#search-form {
-  flex: 1;
-  display: flex;
-  background: #fff;
-  border-radius: 8px;
-  overflow: hidden;
-  min-width: 0;
-}
+/* ─── Legend panel (floating below branding bar) ───────────── */
 
-#search-input {
-  flex: 1;
-  border: none;
-  outline: none;
-  padding: 10px 14px;
-  font-size: 15px;
-  background: transparent;
-  min-width: 0;
-}
-
-#search-btn {
-  border: none;
-  background: transparent;
-  padding: 0 12px;
-  cursor: pointer;
-  color: #555;
-  display: flex;
-  align-items: center;
-  flex-shrink: 0;
-}
-
-#search-btn:active {
-  color: #1a73e8;
-}
-
-/* ─── Filter dropdown ──────────────────────────────────────── */
-
-#filter-dropdown {
-  position: relative;
-  flex-shrink: 0;
-}
-
-#filter-btn {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  height: 40px;
-  padding: 0 12px;
-  border-radius: 8px;
-  border: none;
-  background: rgba(255,255,255,0.15);
-  color: #fff;
-  font-size: 14px;
-  font-weight: 500;
-  cursor: pointer;
-  white-space: nowrap;
-  transition: background 0.15s;
-  font-family: inherit;
-}
-
-#filter-btn:hover {
-  background: rgba(255,255,255,0.25);
-}
-
-#filter-btn.has-active {
-  background: #fff;
-  color: #4a4a4a;
-}
-
-#filter-count {
-  background: #1a73e8;
-  color: #fff;
-  font-size: 11px;
-  font-weight: 700;
-  line-height: 1;
-  padding: 2px 6px;
-  border-radius: 10px;
-  margin-left: 2px;
-}
-
-#filter-count.hidden {
-  visibility: hidden;
-}
-
-#filter-panel {
-  position: absolute;
-  top: calc(100% + 6px);
-  left: 0;
+#legend-panel {
+  position: fixed;
+  top: 52px;
+  right: 10px;
   z-index: 1100;
   background: #fff;
-  border-radius: 8px;
-  box-shadow: 0 4px 16px rgba(0,0,0,0.2);
-  padding: 8px;
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  min-width: 150px;
+  border-radius: 10px;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+  padding: 12px 16px 14px;
+  width: max-content;
+  font-size: 13px;
+  min-width: 220px;
 }
 
-#filter-panel.collapsed {
+#legend-panel.hidden {
   display: none;
 }
 
-.filter-toggle {
-  padding: 9px 14px;
-  border-radius: 6px;
-  border: none;
-  background: #f5f5f5;
-  color: #333;
-  font-size: 14px;
-  font-weight: 500;
-  cursor: pointer;
-  text-align: left;
-  font-family: inherit;
-  transition: background 0.15s, color 0.15s;
-}
-
-.filter-toggle.active {
-  background: #1a73e8;
-  color: #fff;
-}
-
-.filter-toggle:active {
-  opacity: 0.8;
-}
-
-/* ─── Right-side controls ──────────────────────────────────── */
-
-#controls-right {
+#legend-panel-header {
   display: flex;
   align-items: center;
-  gap: 8px;
-  margin-left: auto;
-  flex-shrink: 0;
+  justify-content: space-between;
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #6b7280;
+  margin-bottom: 10px;
 }
 
-
-/* ─── Legend (in controls bar) ─────────────────────────────── */
-
-#legend {
-  position: relative;
-  cursor: pointer;
-  user-select: none;
-}
-
-#legend-header {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  height: 40px;
-  padding: 0 12px;
-  border-radius: 8px;
-  background: rgba(255,255,255,0.15);
-  transition: background 0.15s;
-}
-
-#legend:hover #legend-header {
-  background: rgba(255,255,255,0.25);
-}
-
-#legend-title {
-  font-size: 14px;
-  font-weight: 500;
-  color: #fff;
-  white-space: nowrap;
-}
-
-#legend-toggle {
+#legend-panel-close {
+  width: 24px;
+  height: 24px;
   border: none;
   background: none;
   cursor: pointer;
-  color: rgba(255,255,255,0.7);
-  font-size: 12px;
-  line-height: 1;
-  padding: 0;
+  color: #9ca3af;
   display: flex;
   align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+  padding: 0;
+  transition: background 0.12s, color 0.12s;
 }
 
-#legend-body {
-  position: absolute;
-  top: calc(100% + 6px);
-  right: 0;
-  z-index: 1100;
-  background: #fff;
-  border-radius: 8px;
-  box-shadow: 0 4px 16px rgba(0,0,0,0.2);
-  padding: 10px 14px;
-  width: max-content;
-  font-size: 13px;
-}
-
-#legend-body.collapsed {
-  display: none;
+#legend-panel-close:hover {
+  background: #f3f4f6;
+  color: #374151;
 }
 
 .legend-row {
@@ -534,54 +563,13 @@ html, body {
   align-items: center;
   gap: 8px;
   padding: 4px 0;
-  color: #333;
+  color: #374151;
 }
 
 .legend-row.hidden {
   display: none;
 }
 
-/* ─── Request access banner ────────────────────────────────── */
-
-#request-access-banner {
-  flex-shrink: 0;
-  background: #e8f0fe;
-  color: #1a1a1a;
-  font-size: 15px;
-  line-height: 1.8;
-  padding: 7px 14px;
-  text-align: center;
-  z-index: 999;
-}
-
-#request-access-banner.hidden {
-  display: none;
-}
-
-#request-access-banner a {
-  color: #1a73e8;
-  font-weight: 500;
-  text-decoration: none;
-}
-
-#request-access-banner a:hover {
-  text-decoration: underline;
-}
-
-.banner-btn {
-  background: none;
-  border: none;
-  color: #1a73e8;
-  font-weight: 500;
-  font-size: inherit;
-  padding: 0;
-  cursor: pointer;
-  text-decoration: none;
-}
-
-.banner-btn:hover {
-  text-decoration: underline;
-}
 
 /* ─── Map ──────────────────────────────────────────────────── */
 
@@ -652,8 +640,8 @@ html, body {
 /* ─── Layer control (admin floating panel) ─────────────────── */
 
 #layer-control {
-  position: absolute;
-  top: calc(56px + 10px);
+  position: fixed;
+  top: calc(52px + 10px);
   left: 10px;
   z-index: 1000;
   background: #fff;
@@ -772,8 +760,8 @@ html, body {
 /* ─── Search error ─────────────────────────────────────────── */
 
 .search-error {
-  position: absolute;
-  top: calc(56px + 8px);
+  position: fixed;
+  top: calc(52px + 8px);
   left: 12px;
   right: 12px;
   z-index: 1000;
@@ -795,7 +783,7 @@ html, body {
 /* ─── Popups ───────────────────────────────────────────────── */
 
 .fountain-popup {
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
   min-width: 180px;
 }
 
@@ -1118,7 +1106,6 @@ html, body {
 
 /* ─── PIN modal ────────────────────────────────────────────── */
 
-#pilot-modal,
 #pin-modal {
   position: fixed;
   inset: 0;
@@ -1129,7 +1116,6 @@ html, body {
   justify-content: center;
 }
 
-#pilot-modal.hidden,
 #pin-modal.hidden {
   display: none;
 }
@@ -1151,7 +1137,6 @@ html, body {
   color: #1a1a1a;
 }
 
-#pilot-input,
 #pin-input {
   width: 100%;
   padding: 10px 12px;
@@ -1164,19 +1149,16 @@ html, body {
   transition: border-color 0.15s;
 }
 
-#pilot-input:focus,
 #pin-input:focus {
   border-color: #1a73e8;
 }
 
-#pilot-error,
 #pin-error {
   font-size: 13px;
   color: #c62828;
   margin-top: -4px;
 }
 
-#pilot-error.hidden,
 #pin-error.hidden {
   display: none;
 }
