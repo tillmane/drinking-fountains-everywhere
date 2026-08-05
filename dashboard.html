@@ -265,6 +265,18 @@
 
     <div id="charts">
       <div class="chart-card">
+        <h2>Cumulative contributions</h2>
+        <div class="chart-wrap"><canvas id="chart-cum-contribs"></canvas></div>
+      </div>
+      <div class="chart-card">
+        <h2>Cumulative previously-unrated fountains rated</h2>
+        <div class="chart-wrap"><canvas id="chart-cum-newly-rated"></canvas></div>
+      </div>
+      <div class="chart-card">
+        <h2>Cumulative unique devices contributing</h2>
+        <div class="chart-wrap"><canvas id="chart-cum-devices"></canvas></div>
+      </div>
+      <div class="chart-card">
         <h2>Contributions per day (ratings, off reports, not found)</h2>
         <div class="chart-wrap"><canvas id="chart-reports"></canvas></div>
       </div>
@@ -373,6 +385,9 @@
       var GREEN  = "rgba(22,163,74,0.85)";
       var PURPLE = "rgba(124,58,237,0.85)";
 
+      var chartCumContribs   = null;
+      var chartCumNewlyRated = null;
+      var chartCumDevices    = null;
       var chartReports    = null;
       var chartAvg        = null;
       var chartNewlyRated = null;
@@ -445,6 +460,70 @@
         });
       }
 
+      function cumulativeLineOpts() {
+        return {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: { display: false },
+            tooltip: {
+              mode: "index",
+              intersect: false,
+              callbacks: {
+                label: function (ctx) { return " " + ctx.dataset.label + ": " + ctx.parsed.y.toLocaleString(); },
+              },
+            },
+          },
+          scales: {
+            x: { grid: { display: false }, ticks: { font: { size: 11 }, maxRotation: 45 } },
+            y: { beginAtZero: true, ticks: { font: { size: 11 }, precision: 0 } },
+          },
+          elements: { line: { tension: 0.3, borderWidth: 2 }, point: { radius: 0, hitRadius: 12 } },
+        };
+      }
+
+      function renderCumulativeCharts(series) {
+        var labels = buildLabels(series);
+
+        var cumContribs = [];
+        var cumNewlyRated = [];
+        var cumDevices = [];
+        var totC = 0, totN = 0, totD = 0;
+        series.forEach(function (r) {
+          totC += (r.ratings || 0) + (r.off_reports || 0) + (r.not_found_reports || 0);
+          totN += r.newly_rated || 0;
+          totD += r.unique_devices || 0;
+          cumContribs.push(totC);
+          cumNewlyRated.push(totN);
+          cumDevices.push(totD);
+        });
+
+        var blueAlpha   = "rgba(42,120,214,0.15)";
+        var greenAlpha  = "rgba(27,175,122,0.15)";
+        var purpleAlpha = "rgba(74,58,167,0.15)";
+
+        if (chartCumContribs) chartCumContribs.destroy();
+        chartCumContribs = new Chart(document.getElementById("chart-cum-contribs"), {
+          type: "line",
+          data: { labels: labels, datasets: [{ label: "Contributions", data: cumContribs, borderColor: BLUE, backgroundColor: blueAlpha, fill: true }] },
+          options: cumulativeLineOpts(),
+        });
+
+        if (chartCumNewlyRated) chartCumNewlyRated.destroy();
+        chartCumNewlyRated = new Chart(document.getElementById("chart-cum-newly-rated"), {
+          type: "line",
+          data: { labels: labels, datasets: [{ label: "Fountains rated", data: cumNewlyRated, borderColor: GREEN, backgroundColor: greenAlpha, fill: true }] },
+          options: cumulativeLineOpts(),
+        });
+
+        if (chartCumDevices) chartCumDevices.destroy();
+        chartCumDevices = new Chart(document.getElementById("chart-cum-devices"), {
+          type: "line",
+          data: { labels: labels, datasets: [{ label: "Devices", data: cumDevices, borderColor: PURPLE, backgroundColor: purpleAlpha, fill: true }] },
+          options: cumulativeLineOpts(),
+        });
+      }
+
       function renderCharts(series) {
         var labels     = buildLabels(series);
         var ratings    =series.map(function (r) { return r.ratings; });
@@ -513,6 +592,7 @@
             document.getElementById("stat-avg").textContent          = s.avg_ratings_per_device;
             document.getElementById("stat-newly-rated").textContent  = s.newly_rated_fountains;
 
+            renderCumulativeCharts(r.data.series);
             renderCharts(r.data.series);
             if (r.data.fountain_status_summary) renderStatusPie(r.data.fountain_status_summary);
 
