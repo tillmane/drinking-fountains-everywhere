@@ -649,7 +649,7 @@ async function handleGetContributions(db, request, env, cors) {
   try {
     // Daily buckets for ratings, off reports, not-found reports
     // Dates bucketed in Pacific time (UTC-7, fixed offset — close enough for an admin dashboard)
-    const [ratingsRows, offRows, nfRows, avgRows, newlyRatedRows, uniqueDevicesRows, summaryRatings, summaryNewlyRated, fountainStatusRows] =
+    const [ratingsRows, offRows, nfRows, avgRows, newlyRatedRows, newDevicesRows, summaryRatings, summaryNewlyRated, fountainStatusRows] =
       await Promise.all([
         db.prepare(
           `SELECT date(updated_at, '-7 hours') AS day, COUNT(*) AS count
@@ -689,9 +689,10 @@ async function handleGetContributions(db, request, env, cors) {
         ).bind(-periodDays).all(),
 
         db.prepare(
-          `SELECT date(updated_at, '-7 hours') AS day, COUNT(DISTINCT device_id) AS count
-           FROM ratings
-           WHERE updated_at >= datetime('now', ? || ' days', '-7 hours')
+          `SELECT date(first_seen, '-7 hours') AS day, COUNT(*) AS count FROM (
+             SELECT device_id, MIN(updated_at) AS first_seen
+             FROM ratings GROUP BY device_id
+           ) WHERE first_seen >= datetime('now', ? || ' days', '-7 hours')
            GROUP BY day ORDER BY day`
         ).bind(-periodDays).all(),
 
@@ -782,7 +783,7 @@ async function handleGetContributions(db, request, env, cors) {
     const rMap  = toMap(ratingsRows);
     const oMap  = toMap(offRows);
     const nMap  = toMap(nfRows);
-    const udMap = toMap(uniqueDevicesRows);
+    const ndMap = toMap(newDevicesRows);
     const nrMap = toMap(newlyRatedRows);
 
     const avgMap = {};
@@ -794,7 +795,7 @@ async function handleGetContributions(db, request, env, cors) {
         ratings:              rMap[day]  || 0,
         off_reports:          oMap[day]  || 0,
         not_found_reports:    nMap[day]  || 0,
-        unique_devices:       udMap[day] || 0,
+        new_devices:          ndMap[day] || 0,
         newly_rated:          nrMap[day] || 0,
         avg_ratings_per_device: avgMap[day] != null ? avgMap[day] : null,
       };

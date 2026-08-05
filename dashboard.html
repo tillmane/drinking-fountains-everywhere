@@ -273,7 +273,7 @@
         <div class="chart-wrap"><canvas id="chart-cum-newly-rated"></canvas></div>
       </div>
       <div class="chart-card">
-        <h2>Cumulative unique devices contributing</h2>
+        <h2>Cumulative new devices (user adoption)</h2>
         <div class="chart-wrap"><canvas id="chart-cum-devices"></canvas></div>
       </div>
       <div class="chart-card">
@@ -289,7 +289,7 @@
         <div class="chart-wrap"><canvas id="chart-newly-rated"></canvas></div>
       </div>
       <div class="chart-card">
-        <h2>Unique devices contributing per day</h2>
+        <h2>New devices per day (first-ever contribution)</h2>
         <div class="chart-wrap"><canvas id="chart-devices"></canvas></div>
       </div>
       <div class="chart-card">
@@ -492,7 +492,7 @@
         series.forEach(function (r) {
           totC += (r.ratings || 0) + (r.off_reports || 0) + (r.not_found_reports || 0);
           totN += r.newly_rated || 0;
-          totD += r.unique_devices || 0;
+          totD += r.new_devices || 0;
           cumContribs.push(totC);
           cumNewlyRated.push(totN);
           cumDevices.push(totD);
@@ -519,7 +519,7 @@
         if (chartCumDevices) chartCumDevices.destroy();
         chartCumDevices = new Chart(document.getElementById("chart-cum-devices"), {
           type: "line",
-          data: { labels: labels, datasets: [{ label: "Devices", data: cumDevices, borderColor: PURPLE, backgroundColor: purpleAlpha, fill: true }] },
+          data: { labels: labels, datasets: [{ label: "New devices", data: cumDevices, borderColor: PURPLE, backgroundColor: purpleAlpha, fill: true }] },
           options: cumulativeLineOpts(),
         });
       }
@@ -531,7 +531,7 @@
         var nfReports  = series.map(function (r) { return r.not_found_reports; });
         var avgPerDev  = series.map(function (r) { return r.avg_ratings_per_device; });
         var newlyRated = series.map(function (r) { return r.newly_rated; });
-        var devices    = series.map(function (r) { return r.unique_devices; });
+        var devices    = series.map(function (r) { return r.new_devices; });
 
         // Stacked bar: contributions by type per day
         if (chartReports) chartReports.destroy();
@@ -564,11 +564,11 @@
           options: baseOpts(),
         });
 
-        // Unique devices
+        // New devices per day
         if (chartDevices) chartDevices.destroy();
         chartDevices = new Chart(document.getElementById("chart-devices"), {
           type: "bar",
-          data: { labels: labels, datasets: [ { label: "Unique devices", data: devices, backgroundColor: PURPLE } ] },
+          data: { labels: labels, datasets: [ { label: "New devices", data: devices, backgroundColor: PURPLE } ] },
           options: baseOpts(),
         });
       }
