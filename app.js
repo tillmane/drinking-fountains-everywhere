@@ -270,7 +270,7 @@
     if (!anyNfReport) {
       if (local.reported_off) {
         offHtml = '<div class="report-status reported-off">Reported off (' + local.off_reports + ') as of ' + formatRelativeDate(local.last_off_report_at) + '</div>' +
-          '<button class="report-btn report-on-btn" data-fountain-id="' + local.id + '" data-status="on">Report on</button>';
+          '<button class="report-btn report-on-btn" data-fountain-id="' + local.id + '" data-status="on">Report back on</button>';
       } else {
         offHtml = '<div class="report-action-row">' +
           '<button class="report-btn report-off-btn" data-fountain-id="' + local.id + '" data-status="off">Report off</button>' +
@@ -286,7 +286,7 @@
       nfHtml = '<div class="report-status not-found-status">Reported not found / decommissioned as of ' + formatRelativeDate(local.last_not_found_at) + '</div>' +
         '<button class="report-btn undo-not-found-btn" data-fountain-id="' + local.id + '">Undo Not Found / Decommissioned</button>';
     } else if (anyNfReport) {
-      nfHtml = '<div class="report-status not-found-status">Reported not found / decommissioned (' + local.not_found_count + ')</div>' +
+      nfHtml = '<div class="report-status not-found-status">Reported not found / decommissioned (' + local.not_found_count + 'x of 3)</div>' +
         '<div class="report-action-row">' +
         '<button class="report-btn confirm-not-found-btn" data-fountain-id="' + local.id + '">Confirm Not Found / Decommissioned</button>' +
         tooltipIcon("not_found") +
@@ -406,7 +406,7 @@
       if (activeFilters.bottle && !fountainHasBottle(local)) return;
       if (activeFilters.dog && !fountainHasDog(local)) return;
       if (!passesRatingFilter(local)) return;
-      var hasNfReport = local.not_found_count > 0;
+      var hasNfReport = local.not_found;
       if (layerOptions.showNotFound) {
         if (!hasNfReport) return;
       } else if (hasNfReport) return;
@@ -428,7 +428,7 @@
       if (activeFilters.bottle && !fountainHasBottle(local)) return;
       if (activeFilters.dog && !fountainHasDog(local)) return;
       if (!passesRatingFilter(local)) return;
-      var hasNfReport = local.not_found_count > 0;
+      var hasNfReport = local.not_found;
       if (layerOptions.showNotFound) {
         if (!hasNfReport) return;
       } else if (hasNfReport) return;
@@ -472,7 +472,7 @@
     var count = 0;
     fountainList.forEach(function (local) {
       // Mirror renderCity / renderOsm visibility logic
-      var hasNfReport = local.not_found_count > 0;
+      var hasNfReport = local.not_found;
       if (layerOptions.showNotFound ? !hasNfReport : hasNfReport) return;
       if (activeFilters.accessible && !fountainHasAccessible(local)) return;
       if (activeFilters.bottle && !fountainHasBottle(local)) return;
