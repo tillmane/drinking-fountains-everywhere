@@ -1270,3 +1270,19 @@ html, body {
   z-index: 10;
   pointer-events: none;
 }
+
+/* ─── Mobile layout ────────────────────────────────────────── */
+
+@media (max-width: 540px) {
+  #controls-bar {
+    flex-wrap: wrap;
+  }
+
+  #search-form {
+    flex-basis: 100%;
+  }
+
+  #filter-pills {
+    flex-basis: 100%;
+  }
+}
