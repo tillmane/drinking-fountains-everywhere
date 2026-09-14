@@ -88,6 +88,11 @@
     return sd.CURRENT_STATUS === "ON" || sd.CURRENT_STATUS === null || sd.CURRENT_STATUS === undefined;
   }
 
+  function isCityShutOff(local) {
+    var sd = getSourceData(local, "city_gis");
+    return sd ? !isCityRunning(sd) : false;
+  }
+
   function getSourceData(local, sourceType) {
     var src = (local.sources || []).find(function (s) { return s.source_type === sourceType && s.source_data !== null; });
     return src ? src.source_data : null;
@@ -150,7 +155,6 @@
   }
 
   var icons = {
-    cityOff:        makeIcon("#c62828", X_ICON),
     reportedOff:    makeIcon("#e67e22", X_ICON),
     reportedNotFound: makeIcon("#e67e22", QUESTION_ICON),
   };
@@ -200,165 +204,144 @@
     return month + " " + date.getDate();
   }
 
-  function buildReactionButtons(fountainId, thumbsUp, thumbsDown, yourScore) {
-    var upActive = yourScore === 1 ? " active" : "";
-    var downActive = yourScore === 0 ? " active" : "";
-    return '<div class="reactions">' +
-      '<div class="reaction-row">' +
-        '<button class="reaction-btn' + upActive + '" data-fountain-id="' + fountainId + '" data-score="1">👍 <span class="reaction-count">' + (thumbsUp || 0) + '</span></button>' +
-        '<div class="reaction-label">Good water — reliable, clean, decent pressure</div>' +
-      '</div>' +
-      '<div class="reaction-row">' +
-        '<button class="reaction-btn' + downActive + '" data-fountain-id="' + fountainId + '" data-score="0">👎 <span class="reaction-count">' + (thumbsDown || 0) + '</span></button>' +
-        '<div class="reaction-label">Not worth the detour — very low pressure, extremely dirty, etc</div>' +
-      '</div>' +
-    '</div>';
-  }
-
-  var TOOLTIPS = {
-    accessible: "Features a fountain accessible to wheelchair users",
-    dog_bowl:   "Features a near-ground fountain or basin for pet access",
-    report_off: "No water comes out!",
-    not_found:  "Not there or appears decommissioned (no basin, spout, handle, etc.)!",
+  var POPUP_BORDER_COLORS = {
+    notthere: "#e67e22", nowater: "#df6a30", working: "#2f6fed", unrated: "#a7adb5"
   };
 
-  function tooltipIcon(key) {
-    return '<button class="attr-tooltip-btn" data-tooltip="' + TOOLTIPS[key] + '" aria-label="More info" type="button">?</button>';
+  function getPopupState(local) {
+    if (local.not_found_count > 0) return "notthere";
+    if (local.reported_off) return "nowater";
+    if (local.rating_count > 0) return "working";
+    return "unrated";
   }
 
-  function buildAttributeSection(local, sourceAccessible) {
-    if (!local) return "";
-    var accessibleChecked = (sourceAccessible || local.user_accessible) ? " checked" : "";
-    var bottleChecked = local.user_bottle_filler ? " checked" : "";
-    var dogChecked = local.user_dog_bowl ? " checked" : "";
-    return '<div class="attr-section">' +
-      '<div class="attr-checkbox-row">' +
-        '<input type="checkbox" id="attr-accessible-' + local.id + '" class="attr-checkbox" data-fountain-id="' + local.id + '" data-attribute="accessible"' + accessibleChecked + '>' +
-        '<label for="attr-accessible-' + local.id + '">Accessible</label>' +
-        tooltipIcon("accessible") +
-      '</div>' +
-      '<div class="attr-checkbox-row">' +
-        '<input type="checkbox" id="attr-bottle-' + local.id + '" class="attr-checkbox" data-fountain-id="' + local.id + '" data-attribute="bottle_filler"' + bottleChecked + '>' +
-        '<label for="attr-bottle-' + local.id + '">Bottle Filler</label>' +
-      '</div>' +
-      '<div class="attr-checkbox-row">' +
-        '<input type="checkbox" id="attr-dog-' + local.id + '" class="attr-checkbox" data-fountain-id="' + local.id + '" data-attribute="dog_bowl"' + dogChecked + '>' +
-        '<label for="attr-dog-' + local.id + '">Dog Bowl</label>' +
-        tooltipIcon("dog_bowl") +
-      '</div>' +
-    '</div>';
+  function getPopupSourceLine(local) {
+    var citySD = getSourceData(local, "city_gis");
+    var osmSD = getSourceData(local, "osm");
+    var tags = osmSD ? osmSD.tags || {} : {};
+    var sourceLabel = citySD ? "Seattle City GIS" : "OpenStreetMap";
+    var title = (citySD && citySD.PARK) || null;
+    if (!title && tags.name && tags.name !== "Drinking Fountain") title = tags.name;
+    return '<p class="popup-meta">' + (title ? title + " · " : "") + sourceLabel + '</p>';
   }
 
-  function buildReportSection(local) {
-    if (!local) return "";
+  function buildPopupMain(local) {
+    var state = getPopupState(local);
 
-    var anyNfReport = local.not_found_count > 0;
-    var myNfReport = !!myNotFoundReports[local.id];
-    var thresholdReached = local.not_found;
-
-    // When threshold is reached, only admin can see/act — all report controls hidden for regular users
-    if (thresholdReached && !powerUserMode) {
-      return '<div class="report-section">' +
-        '<div class="report-actions">' +
-          '<button class="report-btn reinstate-btn" data-fountain-id="' + local.id + '" style="display:none">Reinstate</button>' +
-        '</div>' +
-      '</div>';
-    }
-
-    var offHtml = "";
-    // Report Off is hidden if any not-found report exists (not-found overrides)
-    if (!anyNfReport) {
-      if (local.reported_off) {
-        offHtml = '<div class="report-status reported-off">Reported off (' + local.off_reports + ') as of ' + formatRelativeDate(local.last_off_report_at) + '</div>' +
-          '<button class="report-btn report-on-btn" data-fountain-id="' + local.id + '" data-status="on">Report back on</button>';
-      } else {
-        offHtml = '<div class="report-action-row">' +
-          '<button class="report-btn report-off-btn" data-fountain-id="' + local.id + '" data-status="off">Report off</button>' +
-          tooltipIcon("report_off") +
+    if (state === "notthere") {
+      var nfHtml = '<div class="popup-status-head">' +
+        '<span class="popup-ico">?</span>' +
+        '<div class="popup-txt">' +
+          '<span class="popup-word" style="color:#e67e22">Not there</span>' +
+          '<span class="popup-when">Reported by ' + local.not_found_count + '.</br> ' + (3 - local.not_found_count) + ' more will make it disappear.</span>' +
+        '</div></div>' +
+        '<div class="popup-action-stack">' +
+          '<button class="popup-action-btn" data-act="confirmGone" data-fountain-id="' + local.id + '">' +
+            '<span class="popup-ico">?</span><span class="popup-lbl">Confirm not there</span></button>' +
+          '<button class="popup-action-btn" data-act="foundIt" data-fountain-id="' + local.id + '">' +
+            '<span class="popup-ico">👍</span><span class="popup-lbl">Undo — I found it</span></button>' +
+        '</div>';
+      if (powerUserMode) {
+        nfHtml += '<div class="popup-action-stack" style="margin-top:7px">' +
+          '<button class="popup-action-btn" data-act="reinstate" data-fountain-id="' + local.id + '">' +
+            '<span class="popup-ico">♻</span><span class="popup-lbl">Reinstate (admin)</span></button>' +
           '</div>';
       }
+      return nfHtml + getPopupSourceLine(local);
     }
 
-    var nfHtml = "";
-    if (powerUserMode && thresholdReached) {
-      nfHtml = '<button class="report-btn reinstate-btn" data-fountain-id="' + local.id + '">Reinstate</button>';
-    } else if (myNfReport) {
-      nfHtml = '<div class="report-status not-found-status">Reported not found / decommissioned as of ' + formatRelativeDate(local.last_not_found_at) + '</div>' +
-        '<button class="report-btn undo-not-found-btn" data-fountain-id="' + local.id + '">Undo Not Found / Decommissioned</button>';
-    } else if (anyNfReport) {
-      nfHtml = '<div class="report-status not-found-status">Reported not found / decommissioned (' + local.not_found_count + 'x of 3)</div>' +
-        '<div class="report-action-row">' +
-        '<button class="report-btn confirm-not-found-btn" data-fountain-id="' + local.id + '">Confirm Not Found / Decommissioned</button>' +
-        tooltipIcon("not_found") +
-        '</div>';
-    } else {
-      nfHtml = '<div class="report-action-row">' +
-        '<button class="report-btn not-found-btn" data-fountain-id="' + local.id + '">Not Found / Decommissioned</button>' +
-        tooltipIcon("not_found") +
-        '</div>';
+    if (state === "nowater") {
+      return '<div class="popup-status-head">' +
+        '<span class="popup-ico">✕</span>' +
+        '<div class="popup-txt">' +
+          '<span class="popup-word" style="color:#df6a30">No water</span>' +
+          '<span class="popup-when">reported ' + formatRelativeDate(local.last_off_report_at) + '</span>' +
+        '</div></div>' +
+        '<div class="popup-action-stack">' +
+          '<button class="popup-action-btn" data-act="flowing" data-fountain-id="' + local.id + '">' +
+            '<span class="popup-ico">👍</span><span class="popup-lbl">Water\'s flowing again!</span></button>' +
+        '</div>' +
+        getPopupSourceLine(local);
     }
 
-    return '<div class="report-section">' +
-      '<div class="report-actions">' + offHtml + nfHtml + '</div>' +
+    // unrated / working
+    var myScore = myRatings[local.id] !== undefined ? myRatings[local.id] : null;
+    var upChosen = myScore === 1 ? " chosen" : "";
+    var downChosen = myScore === 0 ? " chosen" : "";
+    var total = (local.thumbs_up || 0) + (local.thumbs_down || 0);
+
+    var html = '<div class="popup-action-stack">' +
+      '<button class="popup-action-btn' + upChosen + '" data-vote="1" data-fountain-id="' + local.id + '">' +
+        '<span class="popup-ico">👍</span><span class="popup-lbl">I drank here</span>' +
+        '<span class="popup-count">' + (local.thumbs_up || 0) + '</span></button>' +
+      '<button class="popup-action-btn decline' + downChosen + '" data-vote="0" data-fountain-id="' + local.id + '">' +
+        '<span class="popup-ico">👎</span><span class="popup-lbl">I chose not to</span>' +
+        '<span class="popup-count">' + (local.thumbs_down || 0) + '</span></button>' +
     '</div>';
+
+    if (total > 0) {
+      html += '<p class="popup-summary">' + (local.thumbs_up || 0) + ' of ' + total +
+        ' people drank here as of ' + formatRelativeDate(local.last_rated_at) + '</p>';
+    }
+
+    html += '<hr class="popup-hr">';
+
+    // Amenity pills
+    var citySD = getSourceData(local, "city_gis");
+    var osmSD = getSourceData(local, "osm");
+    var sourceAccessible = citySD ? isYes(citySD.ACCESSIBLE_MODEL) : (osmSD && osmSD.tags ? osmSD.tags.wheelchair === "yes" : false);
+    var accActive = (sourceAccessible || local.user_accessible) ? " active" : "";
+    var bottleActive = local.user_bottle_filler ? " active" : "";
+    var dogActive = local.user_dog_bowl ? " active" : "";
+
+    html += '<div class="popup-pill-row">' +
+      '<button class="popup-pill' + accActive + '" data-fountain-id="' + local.id + '" data-attribute="accessible">♿ Accessible</button>' +
+      '<button class="popup-pill' + bottleActive + '" data-fountain-id="' + local.id + '" data-attribute="bottle_filler">🚰 Bottle filler</button>' +
+      '<button class="popup-pill' + dogActive + '" data-fountain-id="' + local.id + '" data-attribute="dog_bowl">🐾 Dog bowl</button>' +
+    '</div>';
+
+    // Report row
+    html += '<div class="popup-action-stack" style="margin-top:13px">' +
+      '<button class="popup-action-btn popup-report-row" data-act="openReport" data-fountain-id="' + local.id + '">' +
+        '<span class="popup-ico">⚠️</span><span class="popup-lbl">Report an issue</span>' +
+        '<span class="popup-chev">›</span></button>' +
+    '</div>';
+
+    html += getPopupSourceLine(local);
+    return html;
   }
 
-  function buildRatingSection(local, sourceOff) {
-    if (!fountainIndexLoaded) {
-      return '<div class="rating-section"><p class="rating-unavailable">Loading ratings…</p></div>';
-    }
-    if (!local) {
-      return '<div class="rating-section"><p class="rating-unavailable">Ratings coming soon</p></div>';
+  function buildPopupReport(local, confirmStep) {
+    var html = '<button class="popup-back" data-act="backToMain" data-fountain-id="' + local.id + '">‹ Back</button>' +
+      '<p class="popup-issue-title">Report an issue</p>' +
+      '<button class="popup-issue-option" data-act="reportNoWater" data-fountain-id="' + local.id + '">' +
+        '<span class="popup-ico">✕</span>' +
+        '<div class="popup-option-txt"><span class="popup-option-lbl">No water</span>' +
+        '<span class="popup-option-sub">No water comes out</span></div></button>';
+
+    if (confirmStep) {
+      html += '<div class="popup-confirm-box">' +
+        '<p>Are you sure this fountain is missing? Reporting it may remove it from the map.</p>' +
+        '<div class="popup-confirm-row">' +
+          '<button style="background:#78828e" data-act="reportGone" data-fountain-id="' + local.id + '">Yes, report it</button>' +
+          '<button style="background:#c7ccd3" data-act="cancelGone" data-fountain-id="' + local.id + '">Cancel</button>' +
+        '</div></div>';
+    } else {
+      html += '<button class="popup-issue-option" data-act="askGone" data-fountain-id="' + local.id + '">' +
+        '<span class="popup-ico">?</span>' +
+        '<div class="popup-option-txt"><span class="popup-option-lbl">Gone or decommissioned</span>' +
+        '<span class="popup-option-sub">Fixtures removed, or fountain no longer exists</span></div></button>';
     }
 
-    if (sourceOff) {
-      return '<div class="rating-section" data-fountain-id="' + local.id + '">' +
-        '<p class="rating-unavailable">Ratings disabled — fountain shut off by city</p>' +
-      '</div>';
-    }
-
-    var lastRated = local.last_rated_at
-      ? "Last rated " + formatRelativeDate(local.last_rated_at)
-      : "";
-
-    return '<div class="rating-section" data-fountain-id="' + local.id + '">' +
-      buildReactionButtons(local.id, local.thumbs_up, local.thumbs_down, myRatings[local.id] !== undefined ? myRatings[local.id] : null) +
-      (lastRated ? '<div class="rating-last">' + lastRated + '</div>' : '') +
-    '</div>';
+    return html;
   }
 
   function buildPopup(local) {
     if (!local) return '<div class="fountain-popup"><p>Data unavailable</p></div>';
-
-    var citySD = getSourceData(local, "city_gis");
-    var osmSD = getSourceData(local, "osm");
-    var tags = osmSD ? osmSD.tags || {} : {};
-
-    var running = citySD ? isCityRunning(citySD) : true;
-    var sourceLabel = citySD ? "Seattle City GIS" : "OpenStreetMap";
-
-    var title = (citySD && citySD.PARK) || null;
-    if (!title && tags.name && tags.name !== "Drinking Fountain") title = tags.name;
-
-    var detailsHtml = "";
-    if (citySD && !running)
-      detailsHtml += '<div class="details"><div><span class="detail-label">Reason Off:</span> ' + (citySD.REASON_OFF || "UNKNOWN") + '</div></div>';
-    if (!citySD && tags.check_date)
-      detailsHtml += '<div class="details"><div><span class="detail-label">Last Verified:</span> ' + tags.check_date + '</div></div>';
-
-    var sourceAccessible = citySD ? isYes(citySD.ACCESSIBLE_MODEL) : tags.wheelchair === "yes";
-
-    return '<div class="fountain-popup">' +
-      (citySD && !running ? '<span class="status off">Shut Off</span>' : '') +
-      detailsHtml +
-      buildRatingSection(local, !running) +
-      buildAttributeSection(local, sourceAccessible) +
-      buildReportSection(local) +
-      '<div class="popup-footer">' +
-        (title ? '<div class="popup-name">' + title + '</div>' : '') +
-        '<div class="popup-source">' + sourceLabel + '</div>' +
-      '</div>' +
-    '</div>';
+    var state = getPopupState(local);
+    var borderColor = POPUP_BORDER_COLORS[state];
+    return '<div class="fountain-popup" data-fountain-id="' + local.id + '" style="border-left-color:' + borderColor + '">' +
+      buildPopupMain(local) + '</div>';
   }
 
   function getPinZIndex(local) {
@@ -379,7 +362,6 @@
   }
 
   function getCityIcon(local, sd) {
-    if (sd && !isCityRunning(sd)) return icons.cityOff;
     if (isReportedNotFound(local)) return icons.reportedNotFound;
     if (local && local.reported_off) return icons.reportedOff;
     return pinStateToIcon(getPinStateForLocal(local), "#2563eb");
@@ -401,20 +383,20 @@
     fountainList.forEach(function (local) {
       var citySD = getSourceData(local, "city_gis");
       if (!citySD) return;
+      if (!isCityRunning(citySD)) return;
       if (layerOptions.cityUniqueOnly && fountainHasOsmMatch(local)) return;
       if (activeFilters.accessible && !fountainHasAccessible(local)) return;
       if (activeFilters.bottle && !fountainHasBottle(local)) return;
       if (activeFilters.dog && !fountainHasDog(local)) return;
       if (!passesRatingFilter(local)) return;
-      var hasNfReport = local.not_found;
       if (layerOptions.showNotFound) {
-        if (!hasNfReport) return;
-      } else if (hasNfReport) return;
+        if (local.not_found_count <= 0) return;
+      } else if (local.not_found) return;
 
       var icon = layerOptions.showNotFound ? icons.reportedNotFound : getCityIcon(local, citySD);
       var cm = L.marker([local.lat, local.lon], { icon: icon, zIndexOffset: getPinZIndex(local) });
       cm._fountainId = local.id;
-      cm.bindPopup(function () { return buildPopup(local); }).addTo(sources.city.layerGroup);
+      cm.bindPopup(function () { return buildPopup(local); }, { className: "popup-v35", maxWidth: 320, minWidth: 300 }).addTo(sources.city.layerGroup);
     });
   }
 
@@ -423,20 +405,20 @@
     fountainList.forEach(function (local) {
       var osmSD = getSourceData(local, "osm");
       if (!osmSD) return;
+      if (isCityShutOff(local)) return;
       if (!powerUserMode && fountainHasCityGisMatch(local)) return;
       if (activeFilters.accessible && !fountainHasAccessible(local)) return;
       if (activeFilters.bottle && !fountainHasBottle(local)) return;
       if (activeFilters.dog && !fountainHasDog(local)) return;
       if (!passesRatingFilter(local)) return;
-      var hasNfReport = local.not_found;
       if (layerOptions.showNotFound) {
-        if (!hasNfReport) return;
-      } else if (hasNfReport) return;
+        if (local.not_found_count <= 0) return;
+      } else if (local.not_found) return;
 
       var icon = layerOptions.showNotFound ? icons.reportedNotFound : getOsmIcon(local);
       var om = L.marker([local.lat, local.lon], { icon: icon, zIndexOffset: getPinZIndex(local) });
       om._fountainId = local.id;
-      om.bindPopup(function () { return buildPopup(local); }).addTo(sources.osm.layerGroup);
+      om.bindPopup(function () { return buildPopup(local); }, { className: "popup-v35", maxWidth: 320, minWidth: 300 }).addTo(sources.osm.layerGroup);
     });
   }
 
@@ -472,8 +454,8 @@
     var count = 0;
     fountainList.forEach(function (local) {
       // Mirror renderCity / renderOsm visibility logic
-      var hasNfReport = local.not_found;
-      if (layerOptions.showNotFound ? !hasNfReport : hasNfReport) return;
+      if (isCityShutOff(local)) return;
+      if (layerOptions.showNotFound ? local.not_found_count <= 0 : local.not_found) return;
       if (activeFilters.accessible && !fountainHasAccessible(local)) return;
       if (activeFilters.bottle && !fountainHasBottle(local)) return;
       if (activeFilters.dog && !fountainHasDog(local)) return;
@@ -568,21 +550,21 @@
           f.off_reports = data.off_reports;
           f.last_off_report_at = data.last_off_report_at;
         }
-        map.closePopup();
-        renderAll();
+        refreshOpenPopup(fountainId);
+        updateMarkerForFountain(fountainId);
       })
       .catch(function () {
         showError("Failed to submit report. Please try again.");
       });
   }
 
-  function submitNotFound(fountainId, isAdminAction) {
+  function submitNotFound(fountainId, isAdminAction, forceAction) {
     if (!API_BASE) return;
-    var isUndo = !isAdminAction && myNotFoundReports[fountainId];
+    var isUndo = forceAction === "undo" ? true : forceAction === "add" ? false : (!isAdminAction && myNotFoundReports[fountainId]);
     var method = (isUndo || isAdminAction) ? "DELETE" : "POST";
     var body = isAdminAction
       ? { admin_token: adminToken }
-      : { device_id: deviceId };
+      : { device_id: deviceId, clear_all: isUndo || undefined };
     fetch(API_BASE + "/fountains/" + fountainId + "/not-found", {
       method: method,
       headers: JSON_HEADERS,
@@ -602,8 +584,8 @@
           f.not_found = data.not_found;
           f.last_not_found_at = data.last_not_found_at;
         }
-        map.closePopup();
-        renderAll();
+        refreshOpenPopup(fountainId);
+        updateMarkerForFountain(fountainId);
       })
       .catch(function () {
         showError("Failed to submit. Please try again.");
@@ -634,7 +616,7 @@
           f.rating_count = data.rating_count;
           f.last_rated_at = data.last_rated_at;
         }
-        updateOpenPopupRating(fountainId, data);
+        refreshOpenPopup(fountainId);
         updateMarkerForFountain(fountainId);
       })
       .catch(function () {
@@ -642,87 +624,80 @@
       });
   }
 
-  function updateOpenPopupRating(fountainId, data) {
-    var section = document.querySelector('.rating-section[data-fountain-id="' + fountainId + '"]');
-    if (!section) return;
+  function refreshOpenPopup(fountainId) {
+    var el = document.querySelector('.fountain-popup[data-fountain-id="' + fountainId + '"]');
+    if (!el) return;
+    var local = fountainIndex[fountainId];
+    if (!local) return;
+    var state = getPopupState(local);
+    el.style.borderLeftColor = POPUP_BORDER_COLORS[state];
+    el.innerHTML = buildPopupMain(local);
+    wirePopupEvents(el, local);
+  }
 
-    var reactions = section.querySelector(".reactions");
-    if (reactions) {
-      reactions.outerHTML = buildReactionButtons(fountainId, data.thumbs_up, data.thumbs_down, data.your_score);
-      // re-attach listeners after DOM replacement
-      section.querySelectorAll(".reaction-btn").forEach(function (btn) {
-        btn.addEventListener("click", function () {
-          submitRating(parseInt(this.dataset.fountainId), parseInt(this.dataset.score));
-        });
+  function swapPopupView(el, local, view, confirmStep) {
+    el.innerHTML = view === "report" ? buildPopupReport(local, confirmStep) : buildPopupMain(local);
+    wirePopupEvents(el, local);
+  }
+
+  function wirePopupEvents(container, local) {
+    var fId = local.id;
+
+    container.querySelectorAll("[data-vote]").forEach(function (btn) {
+      btn.addEventListener("click", function (e) {
+        e.stopPropagation();
+        submitRating(fId, parseInt(this.dataset.vote));
       });
-    }
+    });
 
-    var lastEl = section.querySelector(".rating-last");
-    if (lastEl) {
-      lastEl.textContent = "Last rated " + formatRelativeDate(data.last_rated_at);
-    } else {
-      var newLast = document.createElement("div");
-      newLast.className = "rating-last";
-      newLast.textContent = "Last rated " + formatRelativeDate(data.last_rated_at);
-      section.querySelector(".reactions")
-        ? section.querySelector(".reactions").insertAdjacentElement("afterend", newLast)
-        : section.insertAdjacentElement("afterbegin", newLast);
-    }
+    container.querySelectorAll(".popup-pill").forEach(function (pill) {
+      pill.addEventListener("click", function (e) {
+        e.stopPropagation();
+        var attr = this.dataset.attribute;
+        var isActive = this.classList.contains("active");
+        submitAttribute(fId, attr, !isActive);
+        this.classList.toggle("active");
+      });
+    });
+
+    container.querySelectorAll("[data-act]").forEach(function (btn) {
+      btn.addEventListener("click", function (e) {
+        e.stopPropagation();
+        var act = this.dataset.act;
+        if (act === "openReport") {
+          swapPopupView(container, local, "report", false);
+        } else if (act === "backToMain") {
+          swapPopupView(container, local, "main", false);
+        } else if (act === "flowing") {
+          submitReport(fId, "on");
+        } else if (act === "confirmGone") {
+          submitNotFound(fId, false, "add");
+        } else if (act === "foundIt") {
+          submitNotFound(fId, false, "undo");
+        } else if (act === "reinstate") {
+          submitNotFound(fId, true);
+        } else if (act === "reportNoWater") {
+          submitReport(fId, "off");
+        } else if (act === "askGone") {
+          swapPopupView(container, local, "report", true);
+        } else if (act === "reportGone") {
+          submitNotFound(fId, false, "add");
+        } else if (act === "cancelGone") {
+          swapPopupView(container, local, "report", false);
+        }
+      });
+    });
   }
 
   map.on("popupopen", function (e) {
     var container = e.popup.getElement();
     if (!container) return;
-    container.querySelectorAll(".reaction-btn").forEach(function (btn) {
-      btn.addEventListener("click", function () {
-        submitRating(parseInt(this.dataset.fountainId), parseInt(this.dataset.score));
-      });
-    });
-    container.querySelectorAll(".report-btn").forEach(function (btn) {
-      btn.addEventListener("click", function () {
-        var fId = parseInt(this.dataset.fountainId);
-        if (btn.classList.contains("not-found-btn") || btn.classList.contains("confirm-not-found-btn")) {
-          showConfirm("Are you sure this fountain is not found or decommissioned? Reporting it may result in removal from the map.", function () { submitNotFound(fId); });
-          return;
-        }
-        if (btn.classList.contains("undo-not-found-btn")) {
-          submitNotFound(fId);
-          return;
-        }
-        if (btn.classList.contains("reinstate-btn")) {
-          submitNotFound(fId, true);
-          return;
-        }
-        var status = this.dataset.status;
-        if (status === "off") {
-          showConfirm("Report this fountain as turned off?", function () { submitReport(fId, status); });
-          return;
-        }
-        submitReport(fId, status);
-      });
-    });
-    container.querySelectorAll(".attr-checkbox:not([disabled])").forEach(function (cb) {
-      cb.addEventListener("change", function () {
-        var fId = parseInt(this.dataset.fountainId);
-        var attr = this.dataset.attribute;
-        submitAttribute(fId, attr, this.checked);
-      });
-    });
-    container.querySelectorAll(".attr-tooltip-btn").forEach(function (btn) {
-      var tip = null;
-      btn.addEventListener("click", function (e) {
-        e.stopPropagation();
-        if (tip) { tip.remove(); tip = null; return; }
-        tip = document.createElement("div");
-        tip.className = "attr-tooltip";
-        tip.textContent = btn.dataset.tooltip;
-        btn.insertAdjacentElement("afterend", tip);
-        document.addEventListener("click", function dismiss() {
-          if (tip) { tip.remove(); tip = null; }
-          document.removeEventListener("click", dismiss);
-        });
-      });
-    });
+    var el = container.querySelector(".fountain-popup");
+    if (!el) return;
+    var fId = parseInt(el.dataset.fountainId);
+    var local = fountainIndex[fId];
+    if (!local) return;
+    wirePopupEvents(el, local);
   });
 
   function searchLocation(query) {
@@ -958,6 +933,10 @@
     menuDashboardLink.classList.remove("hidden");
     updateRatingCounts();
     renderAll();
+  }
+
+  if (isAdminUnlocked() && adminToken) {
+    activateAdminMode();
   }
 
   function deactivateAdminMode() {

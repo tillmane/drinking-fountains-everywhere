@@ -1,0 +1,314 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Fountains For All — Popup (final)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Inline:wght@700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --navy:#0e2038;
+    --blue:#2f6fed; --blue-tint:#eaf1ff;
+    --orange:#df6a30; --orange-tint:#fdecdf;
+    --slate:#78828e; --slate-tint:#eef0f2;
+    --grey-status:#a7adb5;
+    --ink:#1c2530; --ink-mid:#5b6472; --line:#e6e8eb; --paper:#fff;
+    font-family:'Inter',sans-serif;
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;background:#f3f4f6;color:var(--ink);padding:20px 16px 44px;}
+  .wrap{max-width:820px;margin:0 auto;}
+  .brand{font-family:'Big Shoulders Inline',sans-serif;font-weight:700;font-size:22px;color:var(--navy);margin-bottom:2px;}
+  .brand span{color:var(--blue);}
+  .top p{margin:0 0 18px;font-size:13px;color:var(--ink-mid);line-height:1.5;max-width:600px;}
+
+  .ctl-label{font-size:11px;font-weight:600;color:#9aa1a9;text-transform:uppercase;letter-spacing:.04em;
+    display:block;margin-bottom:5px;}
+  .seg{display:inline-flex;background:#fff;border:1px solid var(--line);border-radius:10px;padding:3px;gap:2px;flex-wrap:wrap;}
+  .seg button{border:none;background:transparent;font-family:'Inter',sans-serif;font-size:12.5px;font-weight:600;
+    color:var(--ink-mid);padding:6px 12px;border-radius:7px;cursor:pointer;}
+  .seg button.active{background:var(--navy);color:#fff;}
+  .seg button:hover:not(.active){background:var(--slate-tint);}
+
+  .stage{position:relative;border-radius:14px;overflow:hidden;min-height:400px;margin-top:14px;
+    background:
+      repeating-linear-gradient(100deg, rgba(255,255,255,0.35) 0 2px, transparent 2px 90px),
+      repeating-linear-gradient(20deg, rgba(255,255,255,0.25) 0 1px, transparent 1px 70px),
+      linear-gradient(135deg,#dce9e2,#cfe0ea 60%,#d8e6e0);
+    display:flex;align-items:flex-start;justify-content:center;padding:44px 20px;}
+
+  /* ---------- the popup ---------- */
+  .card{background:var(--paper);width:300px;border-radius:12px;
+    box-shadow:0 10px 30px rgba(15,30,60,0.18),0 2px 6px rgba(15,30,60,0.08);
+    padding:16px 18px;position:relative;border-left:6px solid var(--grey-status);}
+  .card .close{position:absolute;top:10px;right:12px;border:none;background:none;font-size:15px;
+    color:#aab1bb;cursor:pointer;line-height:1;}
+
+  .status-head{display:flex;align-items:center;gap:9px;margin-bottom:12px;}
+  .status-head .ico{font-size:17px;line-height:1;}
+  .status-head .txt{display:flex;flex-direction:column;gap:2px;}
+  .status-head .word{font-weight:700;font-size:17px;line-height:1.15;letter-spacing:-0.01em;}
+  .status-head .when{font-size:12px;color:var(--ink-mid);}
+
+  .action-stack{display:flex;flex-direction:column;gap:7px;}
+  .action-btn{display:flex;align-items:center;gap:10px;width:100%;border:1px solid var(--line);
+    background:#fff;border-radius:9px;padding:10px 13px;cursor:pointer;font-family:'Inter',sans-serif;
+    text-align:left;transition:background .12s,border-color .12s;}
+  .action-btn:hover{background:#fafbfc;}
+  .action-btn .ico{font-size:15px;line-height:1;width:19px;text-align:center;flex:none;}
+  .action-btn .bl{font-size:13.5px;font-weight:600;color:var(--ink);flex:1;}
+  .action-btn .bc{font-size:12.5px;font-weight:700;color:#9aa1a9;background:var(--slate-tint);
+    border-radius:999px;padding:2px 9px;min-width:28px;text-align:center;flex:none;}
+  .action-btn .chev{color:#c2c8cf;font-size:14px;flex:none;}
+  .action-btn.chosen{background:var(--blue-tint);border-color:var(--blue);}
+  .action-btn.chosen .bl{color:var(--blue);}
+  .action-btn.chosen .bc{background:var(--blue);color:#fff;}
+  .action-btn.decline.chosen{background:var(--orange-tint);border-color:var(--orange);}
+  .action-btn.decline.chosen .bl{color:var(--orange);}
+  .action-btn.decline.chosen .bc{background:var(--orange);color:#fff;}
+  .action-btn.report{border-style:dashed;}
+  .action-btn.report .bl{color:var(--ink-mid);}
+
+  .summary{font-size:11.5px;color:var(--ink-mid);line-height:1.4;margin:8px 0 0;}
+
+  .hr{border:none;border-top:1px solid var(--line);margin:13px 0;}
+
+  .pill-row{display:flex;gap:6px;flex-wrap:wrap;}
+  .pill{display:inline-flex;align-items:center;gap:5px;font-size:12px;font-weight:600;padding:6px 10px;
+    border-radius:999px;border:1px solid var(--line);background:#fff;color:#9aa1a9;cursor:pointer;
+    font-family:'Inter',sans-serif;}
+  .pill.active{background:var(--blue-tint);border-color:var(--blue);color:var(--blue);}
+
+  .meta-line{font-size:11.5px;color:#9aa1a9;margin-top:13px;}
+
+  .panel-back{display:flex;align-items:center;gap:6px;font-size:12px;font-weight:600;color:var(--ink-mid);
+    background:none;border:none;cursor:pointer;padding:0;margin:2px 0 10px;font-family:'Inter',sans-serif;}
+  .issue-title{font-size:13px;font-weight:600;color:var(--ink);margin:0 0 10px;}
+  .issue-option{width:100%;text-align:left;background:#fff;border:1px solid var(--line);border-radius:9px;
+    padding:11px 12px;cursor:pointer;margin-bottom:8px;display:flex;align-items:flex-start;gap:10px;
+    font-family:'Inter',sans-serif;}
+  .issue-option:hover{background:#fafbfc;}
+  .issue-option .ico{font-size:15px;line-height:1.2;width:19px;text-align:center;flex:none;}
+  .issue-option .txt{display:flex;flex-direction:column;gap:2px;}
+  .issue-option .lbl{font-size:13px;font-weight:600;color:var(--ink);}
+  .issue-option .sub{font-size:11.5px;font-weight:400;color:var(--ink-mid);line-height:1.35;}
+  .confirm-box{background:var(--slate-tint);border-radius:9px;padding:11px 12px;margin-top:4px;}
+  .confirm-box p{margin:0 0 9px;font-size:12px;color:var(--ink-mid);line-height:1.4;}
+  .confirm-row{display:flex;gap:8px;}
+  .confirm-row button{flex:1;font-family:'Inter',sans-serif;font-size:12.5px;font-weight:600;
+    border:none;border-radius:8px;padding:8px;color:#fff;cursor:pointer;}
+
+  .legend{display:flex;gap:16px;flex-wrap:wrap;justify-content:center;margin-top:16px;font-size:12px;color:var(--ink-mid);}
+  .legend span{display:inline-flex;align-items:center;gap:6px;}
+  .legend i{width:9px;height:9px;border-radius:50%;display:inline-block;}
+  .caption{text-align:center;font-size:12px;color:#8b93a0;margin-top:10px;line-height:1.5;}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="top">
+    <div class="brand">Fountains <span>For All</span></div>
+    <p>Final popup design. Reference for implementation — the state switcher below is scaffolding for this page, not part of the app.</p>
+  </div>
+
+  <span class="ctl-label">Preview state</span>
+  <div class="seg" id="stateSeg">
+    <button data-state="unrated" class="active">Unrated</button>
+    <button data-state="working">Working</button>
+    <button data-state="nowater">No water</button>
+    <button data-state="notthere">Not there</button>
+  </div>
+
+  <div class="stage" id="stage"></div>
+
+  <div class="legend">
+    <span><i style="background:var(--grey-status)"></i>&#63; Unrated</span>
+    <span><i style="background:var(--blue)"></i>&#128077; Working</span>
+    <span><i style="background:var(--orange)"></i>&#10005; No water</span>
+    <span><i style="background:var(--slate)"></i>&#63; Not there</span>
+  </div>
+  <p class="caption">Everything's live — vote, switch your vote, toggle amenities, walk the report flow.</p>
+</div>
+
+<script>
+const ICON = {
+  drank:"\u{1F44D}", declined:"\u{1F44E}",
+  nowater:"\u2715", notthere:"?", report:"\u26A0\uFE0F"
+};
+const AMENITY = {
+  accessible:{icon:"\u267F", label:"Accessible"},
+  bottle:{icon:"\u{1F6B0}", label:"Bottle filler"},
+  dog:{icon:"\u{1F43E}",   label:"Dog bowl"}
+};
+const COLOR = {
+  unrated:"var(--grey-status)", working:"var(--blue)",
+  nowater:"var(--orange)",      notthere:"var(--slate)"
+};
+
+const DATA = {
+  drank:13, declined:3, myVote:null,
+  lastConfirmed:"3 days ago",
+  reportedOn:"Jun 29",
+  notThereCount:1, notThereTotal:3,
+  amenities:{accessible:false, bottle:true, dog:false}
+};
+
+let state="unrated", view="main", confirmStep=false;
+
+/* ---------- fragments ---------- */
+function amenityPills(){
+  return Object.entries(DATA.amenities).map(([k,v])=>
+    `<button class="pill ${v?'active':''}" data-amenity="${k}">${AMENITY[k].icon} ${AMENITY[k].label}</button>`
+  ).join("");
+}
+
+function ratingBlock(){
+  const total = DATA.drank + DATA.declined;
+  const mineDrank    = DATA.myVote==='drank';
+  const mineDeclined = DATA.myVote==='declined';
+  const summary = total
+    ? `<p class="summary">${DATA.drank} of ${total} people drank here as of ${DATA.lastConfirmed}</p>`
+    : "";
+  return `<div class="action-stack">
+      <button class="action-btn ${mineDrank?'chosen':''}" data-vote="drank">
+        <span class="ico">${ICON.drank}</span><span class="bl">I drank here</span>
+        <span class="bc">${DATA.drank}</span></button>
+      <button class="action-btn decline ${mineDeclined?'chosen':''}" data-vote="declined">
+        <span class="ico">${ICON.declined}</span><span class="bl">I chose not to</span>
+        <span class="bc">${DATA.declined}</span></button>
+    </div>${summary}`;
+}
+
+function reportRow(){
+  return `<div class="action-stack" style="margin-top:13px;">
+      <button class="action-btn report" data-go="issue">
+        <span class="ico">${ICON.report}</span><span class="bl">Report an issue</span>
+        <span class="chev">\u203A</span></button>
+    </div>`;
+}
+
+function sourceLine(){
+  return `<p class="meta-line">Carkeek Park \u00B7 Seattle City GIS</p>`;
+}
+
+function statusHead(icon, word, color, when){
+  return `<div class="status-head"><span class="ico">${icon}</span>
+    <div class="txt"><span class="word" style="color:${color}">${word}</span>
+    <span class="when">${when}</span></div></div>`;
+}
+
+/* ---------- main view ---------- */
+function mainView(){
+  let inner = "";
+
+  if(state === "notthere"){
+    inner = statusHead(ICON.notthere, "Not there", "var(--slate)",
+              `reported ${DATA.notThereCount} of ${DATA.notThereTotal}`)
+      + `<div class="action-stack">
+          <button class="action-btn" data-act="confirmGone">
+            <span class="ico">${ICON.notthere}</span><span class="bl">Confirm not there</span></button>
+          <button class="action-btn" data-act="foundIt">
+            <span class="ico">${ICON.drank}</span><span class="bl">Undo \u2014 I found it</span></button>
+        </div>`
+      + sourceLine();
+
+  } else if(state === "nowater"){
+    inner = statusHead(ICON.nowater, "No water", "var(--orange)", `reported ${DATA.reportedOn}`)
+      + `<div class="action-stack">
+          <button class="action-btn" data-act="flowing">
+            <span class="ico">${ICON.drank}</span><span class="bl">Water's flowing again</span></button>
+        </div>`
+      + reportRow()
+      + sourceLine();
+
+  } else {
+    inner = ratingBlock()
+      + `<hr class="hr"><div class="pill-row">${amenityPills()}</div>`
+      + reportRow()
+      + sourceLine();
+  }
+
+  return `<div class="card" style="border-left-color:${COLOR[state]}">
+    <button class="close">\u2715</button>${inner}</div>`;
+}
+
+/* ---------- report view ---------- */
+function issueView(){
+  const gone = confirmStep
+    ? `<div class="confirm-box">
+        <p>Are you sure this fountain is missing? Reporting it may remove it from the map.</p>
+        <div class="confirm-row">
+          <button style="background:var(--slate);" data-act="reportGone">Yes, report it</button>
+          <button style="background:#c7ccd3;" data-act="cancelGone">Cancel</button>
+        </div></div>`
+    : `<button class="issue-option" data-act="askGone"><span class="ico">${ICON.notthere}</span>
+        <div class="txt"><span class="lbl">Gone or decommissioned</span>
+        <span class="sub">Fixtures removed, or fountain no longer exists</span></div></button>`;
+
+  return `<div class="card" style="border-left-color:${COLOR[state]}">
+    <button class="close">\u2715</button>
+    <button class="panel-back" data-go="main">\u2039 Back</button>
+    <p class="issue-title">Report an issue</p>
+    <button class="issue-option" data-act="reportNoWater"><span class="ico">${ICON.nowater}</span>
+      <div class="txt"><span class="lbl">No water</span>
+      <span class="sub">Couldn't get a drink, whatever the reason</span></div></button>
+    ${gone}</div>`;
+}
+
+/* ---------- wiring ---------- */
+function render(){
+  document.getElementById('stage').innerHTML = view==='main' ? mainView() : issueView();
+}
+
+document.getElementById('stage').addEventListener('click', e=>{
+  const el = e.target.closest('[data-vote],[data-amenity],[data-go],[data-act]');
+  if(!el) return;
+
+  /* one vote per device — switch, never stack */
+  if(el.dataset.vote){
+    const v = el.dataset.vote;
+    if(DATA.myVote === v) return;
+    if(DATA.myVote === 'drank')    DATA.drank--;
+    if(DATA.myVote === 'declined') DATA.declined--;
+    DATA.myVote = v;
+    v === 'drank' ? DATA.drank++ : DATA.declined++;
+    DATA.lastConfirmed = "just now";
+  }
+  if(el.dataset.amenity){
+    const k = el.dataset.amenity;
+    DATA.amenities[k] = !DATA.amenities[k];
+  }
+  if(el.dataset.go){
+    view = el.dataset.go === 'issue' ? 'issue' : 'main';
+    confirmStep = false;
+  }
+  switch(el.dataset.act){
+    case 'reportNoWater': state='nowater'; view='main'; break;
+    case 'askGone':       confirmStep=true; break;
+    case 'cancelGone':    confirmStep=false; break;
+    case 'reportGone':    state='notthere'; view='main'; confirmStep=false; break;
+    case 'flowing':       state='working'; break;
+    case 'confirmGone':   state='notthere'; break;
+    case 'foundIt':       state='working'; break;
+  }
+  syncSeg();
+  render();
+});
+
+function syncSeg(){
+  document.querySelectorAll('#stateSeg button').forEach(b=>
+    b.classList.toggle('active', b.dataset.state === state));
+}
+
+document.getElementById('stateSeg').addEventListener('click', e=>{
+  const btn = e.target.closest('button'); if(!btn) return;
+  state = btn.dataset.state; view='main'; confirmStep=false;
+  syncSeg(); render();
+});
+
+render();
+</script>
+</body>
+</html>

@@ -590,7 +590,7 @@ async function handleDeleteNotFound(db, fountainId, request, env, cors) {
 
     let body;
     try { body = await request.json(); } catch { return err("Invalid JSON", 400, cors); }
-    const { device_id, admin_token } = body;
+    const { device_id, admin_token, clear_all } = body;
 
     const isAdmin = await verifyAdminToken(admin_token, env);
 
@@ -605,10 +605,17 @@ async function handleDeleteNotFound(db, fountainId, request, env, cors) {
         return err("Invalid device_id", 400, cors);
       }
       devicePrefix = device_id.slice(0, 8);
-      await db
-        .prepare("DELETE FROM not_found_reports WHERE fountain_id = ? AND device_id = ?")
-        .bind(fountainId, device_id)
-        .run();
+      if (clear_all) {
+        await db
+          .prepare("DELETE FROM not_found_reports WHERE fountain_id = ?")
+          .bind(fountainId)
+          .run();
+      } else {
+        await db
+          .prepare("DELETE FROM not_found_reports WHERE fountain_id = ? AND device_id = ?")
+          .bind(fountainId, device_id)
+          .run();
+      }
     }
 
     const agg = await db
