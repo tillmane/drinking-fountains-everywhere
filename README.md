@@ -16,6 +16,11 @@ Access to clean water is a basic human right, yet even in urban areas with high 
 
 ## Release History
 
+### V3.6: Onboarding and Rating Popup Improvements
+- Add legend to the welcome modal
+- Update the UX of the ratings popup to make it more quickly understandable
+- Remove city-reported Shut Off fountains from map -- and legend
+
 ### V3.5: Open Contributions + Visual Redesign: August 4, 2026
 - Remove all pilot gating — anyone can rate, report, and edit attributes without a PIN
 - Visual redesign:
