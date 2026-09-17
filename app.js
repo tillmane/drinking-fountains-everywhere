@@ -205,7 +205,7 @@
   }
 
   var POPUP_BORDER_COLORS = {
-    notthere: "#e67e22", nowater: "#df6a30", working: "#2f6fed", unrated: "#a7adb5"
+    notthere: "#e67e22", nowater: "#df6a30", working: "#2f6fed", unrated: "#2f6fed"
   };
 
   function getPopupState(local) {
@@ -353,7 +353,7 @@
   function pinStateToIcon(state, color) {
     if (state === "up")     return makeIcon(color, THUMB_UP);
     if (state === "down")   return makeIcon(color, THUMB_DOWN);
-    if (state === "unrated") return makeIcon("#9e9e9e", QUESTION_ICON);
+    if (state === "unrated") return makeIcon(color, "");
     return makeIcon(color, QUESTION_ICON);
   }
 
