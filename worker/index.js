@@ -166,6 +166,14 @@ async function handleGetFountains(db, cors) {
       )
       .all();
 
+    const { results: rrReports } = await db
+      .prepare(
+        `SELECT fountain_id, COUNT(*) AS rr_count, MAX(created_at) AS last_rr_at
+         FROM restricted_reports
+         GROUP BY fountain_id`
+      )
+      .all();
+
     const sourceMap = {};
     for (const s of sources) {
       if (!sourceMap[s.fountain_id]) sourceMap[s.fountain_id] = [];
@@ -192,6 +200,11 @@ async function handleGetFountains(db, cors) {
       nfMap[r.fountain_id] = { nf_count: r.nf_count, last_nf_at: r.last_nf_at };
     }
 
+    const rrMap = {};
+    for (const r of rrReports) {
+      rrMap[r.fountain_id] = { rr_count: r.rr_count, last_rr_at: r.last_rr_at };
+    }
+
     const attrTsMap = {};
     for (const a of attrTimestamps) {
       attrTsMap[a.fountain_id] = a.last_attr_at;
@@ -206,6 +219,7 @@ async function handleGetFountains(db, cors) {
           f.last_rated_at,
           report ? report.last_off_at : null,
           nfMap[f.id] ? nfMap[f.id].last_nf_at : null,
+          rrMap[f.id] ? rrMap[f.id].last_rr_at : null,
           attrTsMap[f.id] || null,
         ].filter(Boolean).sort().pop() || null;
         return {
@@ -222,6 +236,9 @@ async function handleGetFountains(db, cors) {
           not_found_count: nfMap[f.id] ? nfMap[f.id].nf_count : 0,
           not_found: nfMap[f.id] ? nfMap[f.id].nf_count >= NOT_FOUND_THRESHOLD : false,
           last_not_found_at: nfMap[f.id] ? nfMap[f.id].last_nf_at : null,
+          restricted_count: rrMap[f.id] ? rrMap[f.id].rr_count : 0,
+          restricted: rrMap[f.id] ? rrMap[f.id].rr_count > 0 : false,
+          last_restricted_at: rrMap[f.id] ? rrMap[f.id].last_rr_at : null,
           last_contributed_at,
         };
       }),
@@ -642,6 +659,109 @@ async function handleDeleteNotFound(db, fountainId, request, env, cors) {
   }
 }
 
+async function handlePostRestricted(db, fountainId, request, env, cors) {
+  const t0 = Date.now();
+  let devicePrefix = "unknown";
+  try {
+    const fountain = await db
+      .prepare("SELECT id FROM fountains WHERE id = ?")
+      .bind(fountainId)
+      .first();
+    if (!fountain) return err("Fountain not found", 404, cors);
+
+    let body;
+    try { body = await request.json(); } catch { return err("Invalid JSON", 400, cors); }
+    const { device_id } = body;
+    if (typeof device_id !== "string" || device_id.length < 1 || device_id.length > 64) {
+      return err("Invalid device_id", 400, cors);
+    }
+    devicePrefix = device_id.slice(0, 8);
+
+    await db
+      .prepare("INSERT OR IGNORE INTO restricted_reports (fountain_id, device_id) VALUES (?, ?)")
+      .bind(fountainId, device_id)
+      .run();
+
+    await db
+      .prepare("DELETE FROM status_reports WHERE fountain_id = ? AND status = 'off'")
+      .bind(fountainId)
+      .run();
+    await db
+      .prepare("DELETE FROM not_found_reports WHERE fountain_id = ?")
+      .bind(fountainId)
+      .run();
+
+    const agg = await db
+      .prepare("SELECT COUNT(*) AS rr_count, MAX(created_at) AS last_rr_at FROM restricted_reports WHERE fountain_id = ?")
+      .bind(fountainId)
+      .first();
+
+    const rrCount = agg.rr_count || 0;
+    const ms = Date.now() - t0;
+    log("info", "POST /fountains/:id/restricted", { fountainId, devicePrefix, status: 200, ms });
+    await writeLog(db, "POST /restricted", fountainId, devicePrefix, 200, ms);
+    return json({
+      fountain_id: fountainId,
+      restricted_count: rrCount,
+      restricted: rrCount > 0,
+      last_restricted_at: agg.last_rr_at,
+      reported_off: false,
+      off_reports: 0,
+      last_off_report_at: null,
+      not_found_count: 0,
+      not_found: false,
+      last_not_found_at: null,
+      your_report: true,
+    }, 200, cors);
+  } catch (e) {
+    const ms = Date.now() - t0;
+    log("error", "POST /fountains/:id/restricted", { fountainId, devicePrefix, error: e.message, ms });
+    await writeLog(db, "POST /restricted", fountainId, devicePrefix, 500, ms);
+    return err("Internal server error", 500, cors);
+  }
+}
+
+async function handleDeleteRestricted(db, fountainId, request, env, cors) {
+  const t0 = Date.now();
+  let devicePrefix = "unknown";
+  try {
+    const fountain = await db
+      .prepare("SELECT id FROM fountains WHERE id = ?")
+      .bind(fountainId)
+      .first();
+    if (!fountain) return err("Fountain not found", 404, cors);
+
+    let body;
+    try { body = await request.json(); } catch { return err("Invalid JSON", 400, cors); }
+    const { device_id } = body;
+    if (typeof device_id !== "string" || device_id.length < 1 || device_id.length > 64) {
+      return err("Invalid device_id", 400, cors);
+    }
+    devicePrefix = device_id.slice(0, 8);
+
+    await db
+      .prepare("DELETE FROM restricted_reports WHERE fountain_id = ?")
+      .bind(fountainId)
+      .run();
+
+    const ms = Date.now() - t0;
+    log("info", "DELETE /fountains/:id/restricted", { fountainId, devicePrefix, status: 200, ms });
+    await writeLog(db, "DELETE /restricted", fountainId, devicePrefix, 200, ms);
+    return json({
+      fountain_id: fountainId,
+      restricted_count: 0,
+      restricted: false,
+      last_restricted_at: null,
+      your_report: false,
+    }, 200, cors);
+  } catch (e) {
+    const ms = Date.now() - t0;
+    log("error", "DELETE /fountains/:id/restricted", { fountainId, devicePrefix, error: e.message, ms });
+    await writeLog(db, "DELETE /restricted", fountainId, devicePrefix, 500, ms);
+    return err("Internal server error", 500, cors);
+  }
+}
+
 async function handleGetContributions(db, request, env, cors) {
   const token = request.headers.get("X-Admin-Token");
   if (!await verifyAdminToken(token, env)) {
@@ -656,7 +776,7 @@ async function handleGetContributions(db, request, env, cors) {
   try {
     // Daily buckets for ratings, off reports, not-found reports
     // Dates bucketed in Pacific time (UTC-7, fixed offset — close enough for an admin dashboard)
-    const [ratingsRows, offRows, nfRows, avgRows, newlyRatedRows, newDevicesRows, summaryRatings, summaryNewlyRated, fountainStatusRows] =
+    const [ratingsRows, offRows, nfRows, rrRows, avgRows, newlyRatedRows, newDevicesRows, summaryRatings, summaryNewlyRated, fountainStatusRows] =
       await Promise.all([
         db.prepare(
           `SELECT date(updated_at, '-7 hours') AS day, COUNT(*) AS count
@@ -675,6 +795,13 @@ async function handleGetContributions(db, request, env, cors) {
         db.prepare(
           `SELECT date(created_at, '-7 hours') AS day, COUNT(*) AS count
            FROM not_found_reports
+           WHERE created_at >= datetime('now', ? || ' days', '-7 hours')
+           GROUP BY day ORDER BY day`
+        ).bind(-periodDays).all(),
+
+        db.prepare(
+          `SELECT date(created_at, '-7 hours') AS day, COUNT(*) AS count
+           FROM restricted_reports
            WHERE created_at >= datetime('now', ? || ' days', '-7 hours')
            GROUP BY day ORDER BY day`
         ).bind(-periodDays).all(),
@@ -717,19 +844,24 @@ async function handleGetContributions(db, request, env, cors) {
         ).bind(-periodDays).first(),
 
         // Fountain status breakdown (across all merged fountains, independent of period)
-        // Priority order: not_found > reported_off > city_shutoff > thumbs_down > thumbs_up > unrated
+        // Priority order: not_found > restricted > reported_off > city_shutoff > thumbs_down > thumbs_up > unrated
         db.prepare(
           `SELECT
              SUM(CASE WHEN COALESCE(nf.nf_count, 0) >= ${NOT_FOUND_THRESHOLD}                                 THEN 1 ELSE 0 END) AS not_found,
-             SUM(CASE WHEN COALESCE(nf.nf_count, 0) < ${NOT_FOUND_THRESHOLD} AND sr.off_count > 0             THEN 1 ELSE 0 END) AS reported_off,
-             SUM(CASE WHEN COALESCE(nf.nf_count, 0) < ${NOT_FOUND_THRESHOLD} AND sr.off_count IS NULL
+             SUM(CASE WHEN COALESCE(nf.nf_count, 0) < ${NOT_FOUND_THRESHOLD}
+                       AND COALESCE(rr.rr_count, 0) > 0                                                       THEN 1 ELSE 0 END) AS restricted,
+             SUM(CASE WHEN COALESCE(nf.nf_count, 0) < ${NOT_FOUND_THRESHOLD}
+                       AND COALESCE(rr.rr_count, 0) = 0 AND sr.off_count > 0                                  THEN 1 ELSE 0 END) AS reported_off,
+             SUM(CASE WHEN COALESCE(nf.nf_count, 0) < ${NOT_FOUND_THRESHOLD}
+                       AND COALESCE(rr.rr_count, 0) = 0 AND sr.off_count IS NULL
                        AND EXISTS (
                          SELECT 1 FROM fountain_sources fs
                          WHERE fs.fountain_id = f.id AND fs.source_type = 'city_gis'
                            AND json_extract(fs.source_data, '$.CURRENT_STATUS') != 'ON'
                            AND json_extract(fs.source_data, '$.CURRENT_STATUS') IS NOT NULL
                        )                                                                          THEN 1 ELSE 0 END) AS city_shutoff,
-             SUM(CASE WHEN COALESCE(nf.nf_count, 0) < ${NOT_FOUND_THRESHOLD} AND sr.off_count IS NULL
+             SUM(CASE WHEN COALESCE(nf.nf_count, 0) < ${NOT_FOUND_THRESHOLD}
+                       AND COALESCE(rr.rr_count, 0) = 0 AND sr.off_count IS NULL
                        AND NOT EXISTS (
                          SELECT 1 FROM fountain_sources fs
                          WHERE fs.fountain_id = f.id AND fs.source_type = 'city_gis'
@@ -737,7 +869,8 @@ async function handleGetContributions(db, request, env, cors) {
                            AND json_extract(fs.source_data, '$.CURRENT_STATUS') IS NOT NULL
                        )
                        AND r.thumbs_down > r.thumbs_up AND r.rating_count > 0                    THEN 1 ELSE 0 END) AS thumbs_down,
-             SUM(CASE WHEN COALESCE(nf.nf_count, 0) < ${NOT_FOUND_THRESHOLD} AND sr.off_count IS NULL
+             SUM(CASE WHEN COALESCE(nf.nf_count, 0) < ${NOT_FOUND_THRESHOLD}
+                       AND COALESCE(rr.rr_count, 0) = 0 AND sr.off_count IS NULL
                        AND NOT EXISTS (
                          SELECT 1 FROM fountain_sources fs
                          WHERE fs.fountain_id = f.id AND fs.source_type = 'city_gis'
@@ -745,7 +878,8 @@ async function handleGetContributions(db, request, env, cors) {
                            AND json_extract(fs.source_data, '$.CURRENT_STATUS') IS NOT NULL
                        )
                        AND r.thumbs_up >= r.thumbs_down AND r.rating_count > 0                   THEN 1 ELSE 0 END) AS thumbs_up,
-             SUM(CASE WHEN COALESCE(nf.nf_count, 0) < ${NOT_FOUND_THRESHOLD} AND sr.off_count IS NULL
+             SUM(CASE WHEN COALESCE(nf.nf_count, 0) < ${NOT_FOUND_THRESHOLD}
+                       AND COALESCE(rr.rr_count, 0) = 0 AND sr.off_count IS NULL
                        AND NOT EXISTS (
                          SELECT 1 FROM fountain_sources fs
                          WHERE fs.fountain_id = f.id AND fs.source_type = 'city_gis'
@@ -768,7 +902,11 @@ async function handleGetContributions(db, request, env, cors) {
            LEFT JOIN (
              SELECT fountain_id, COUNT(*) AS nf_count FROM not_found_reports
              GROUP BY fountain_id
-           ) nf ON nf.fountain_id = f.id`
+           ) nf ON nf.fountain_id = f.id
+           LEFT JOIN (
+             SELECT fountain_id, COUNT(*) AS rr_count FROM restricted_reports
+             GROUP BY fountain_id
+           ) rr ON rr.fountain_id = f.id`
         ).first(),
       ]);
 
@@ -790,6 +928,7 @@ async function handleGetContributions(db, request, env, cors) {
     const rMap  = toMap(ratingsRows);
     const oMap  = toMap(offRows);
     const nMap  = toMap(nfRows);
+    const rrDMap = toMap(rrRows);
     const ndMap = toMap(newDevicesRows);
     const nrMap = toMap(newlyRatedRows);
 
@@ -802,6 +941,7 @@ async function handleGetContributions(db, request, env, cors) {
         ratings:              rMap[day]  || 0,
         off_reports:          oMap[day]  || 0,
         not_found_reports:    nMap[day]  || 0,
+        restricted_reports:   rrDMap[day] || 0,
         new_devices:          ndMap[day] || 0,
         newly_rated:          nrMap[day] || 0,
         avg_ratings_per_device: avgMap[day] != null ? avgMap[day] : null,
@@ -828,6 +968,7 @@ async function handleGetContributions(db, request, env, cors) {
         reported_off: fountainStatusRows.reported_off || 0,
         city_shutoff: fountainStatusRows.city_shutoff || 0,
         not_found:    fountainStatusRows.not_found    || 0,
+        restricted:   fountainStatusRows.restricted   || 0,
       },
     }, 200, cors);
   } catch (e) {
@@ -891,6 +1032,14 @@ export default {
     }
     if (nfMatch && request.method === "DELETE") {
       return handleDeleteNotFound(env.DB, parseInt(nfMatch[1]), request, env, cors);
+    }
+
+    const rrMatch = url.pathname.match(/^\/fountains\/(\d+)\/restricted$/);
+    if (rrMatch && request.method === "POST") {
+      return handlePostRestricted(env.DB, parseInt(rrMatch[1]), request, env, cors);
+    }
+    if (rrMatch && request.method === "DELETE") {
+      return handleDeleteRestricted(env.DB, parseInt(rrMatch[1]), request, env, cors);
     }
 
     return new Response("Not Found", { status: 404, headers: cors });
