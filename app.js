@@ -67,6 +67,7 @@
     accessible: false,
     bottle: false,
     dog: false,
+    restricted: false,
   };
 
   var sources = {
@@ -141,6 +142,17 @@
   var THUMB_UP   = '<text x="14" y="20" text-anchor="middle" font-size="14" font-family="Apple Color Emoji, Segoe UI Emoji, sans-serif">👍</text>';
   var THUMB_DOWN = '<text x="14" y="20" text-anchor="middle" font-size="14" font-family="Apple Color Emoji, Segoe UI Emoji, sans-serif">👎</text>';
 
+  var LOCK_CLOSED_SVG = '<svg width="17" height="17" viewBox="0 0 16 16" fill="none">' +
+    '<rect x="3.2" y="7" width="9.6" height="7" rx="1.4" fill="#4a5fe0"/>' +
+    '<path d="M5.4 7V5.2a2.6 2.6 0 0 1 5.2 0V7" stroke="#4a5fe0" stroke-width="1.6" fill="none"/></svg>';
+
+  var LOCK_OPEN_SVG = '<svg width="18" height="18" viewBox="0 0 16 16" fill="none">' +
+    '<rect x="3.2" y="7" width="9.6" height="7" rx="1.4" fill="#1c2530"/>' +
+    '<path d="M10.4 7V4.9a2.6 2.6 0 0 1 5.2 0" stroke="#1c2530" stroke-width="1.6" fill="none" stroke-linecap="round"/></svg>';
+
+  var LOCK_PIN_GLYPH = '<rect x="8.8" y="14.5" width="10.4" height="8" rx="1.3" fill="#4a5fe0"/>' +
+    '<path d="M11 14.5V12.2a3 3 0 0 1 6 0V14.5" stroke="#4a5fe0" stroke-width="1.6" fill="none"/>';
+
   function makeIcon(color, inner) {
     return L.divIcon({
       className: "fountain-marker",
@@ -157,6 +169,16 @@
   var icons = {
     reportedOff:    makeIcon("#e67e22", X_ICON),
     reportedNotFound: makeIcon("#e67e22", QUESTION_ICON),
+    restricted: L.divIcon({
+      className: "fountain-marker",
+      html: '<svg width="28" height="36" viewBox="0 0 28 36" xmlns="http://www.w3.org/2000/svg">' +
+        '<path d="M14 0C6.27 0 0 6.27 0 14c0 10.5 14 22 14 22s14-11.5 14-22C28 6.27 21.73 0 14 0z" fill="#dde2fb" stroke="#4a5fe0" stroke-width="1.3"/>' +
+        LOCK_PIN_GLYPH +
+      '</svg>',
+      iconSize: [28, 36],
+      iconAnchor: [14, 36],
+      popupAnchor: [0, -30],
+    }),
   };
 
   function lookupFountain(sourceType, sourceId) {
@@ -176,7 +198,8 @@
            local.user_bottle_filler ||
            local.user_dog_bowl ||
            local.off_reports > 0 ||
-           local.not_found_count > 0;
+           local.not_found_count > 0 ||
+           local.restricted_count > 0;
   }
 
   function passesRatingFilter(local) {
@@ -205,12 +228,13 @@
   }
 
   var POPUP_BORDER_COLORS = {
-    notthere: "#e67e22", nowater: "#df6a30", working: "#2f6fed", unrated: "#2f6fed"
+    notthere: "#e67e22", nowater: "#df6a30", restricted: "#4a5fe0", working: "#2f6fed", unrated: "#2f6fed"
   };
 
   function getPopupState(local) {
     if (local.not_found_count > 0) return "notthere";
     if (local.reported_off) return "nowater";
+    if (local.restricted_count > 0) return "restricted";
     if (local.rating_count > 0) return "working";
     return "unrated";
   }
@@ -260,6 +284,21 @@
         '<div class="popup-action-stack">' +
           '<button class="popup-action-btn" data-act="flowing" data-fountain-id="' + local.id + '">' +
             '<span class="popup-ico">👍</span><span class="popup-lbl">Water\'s flowing again!</span></button>' +
+        '</div>' +
+        getPopupSourceLine(local);
+    }
+
+    if (state === "restricted") {
+      return '<div class="popup-status-head">' +
+        '<span class="popup-ico">' + LOCK_CLOSED_SVG + '</span>' +
+        '<div class="popup-txt">' +
+          '<span class="popup-word" style="color:#4a5fe0">Restricted access</span>' +
+          '<span class="popup-when">Private or limited hours · ' + formatRelativeDate(local.last_restricted_at) + '</span>' +
+        '</div></div>' +
+        '<p class="popup-detail">Inside property that may have limited hours or require admission. Shown for reference. Fountain ratings are for public fountains anyone can use.</p>' +
+        '<div class="popup-action-stack">' +
+          '<button class="popup-action-btn" data-act="undoRestricted" data-fountain-id="' + local.id + '">' +
+            '<span class="popup-ico">' + LOCK_OPEN_SVG + '</span><span class="popup-lbl">Wait — it is public after all!</span></button>' +
         '</div>' +
         getPopupSourceLine(local);
     }
@@ -330,7 +369,11 @@
       html += '<button class="popup-issue-option" data-act="askGone" data-fountain-id="' + local.id + '">' +
         '<span class="popup-ico">?</span>' +
         '<div class="popup-option-txt"><span class="popup-option-lbl">Gone or decommissioned</span>' +
-        '<span class="popup-option-sub">Fixtures removed, or fountain no longer exists</span></div></button>';
+        '<span class="popup-option-sub">Fixtures removed, or fountain no longer exists</span></div></button>' +
+        '<button class="popup-issue-option" data-act="reportPrivate" data-fountain-id="' + local.id + '">' +
+        '<span class="popup-ico">' + LOCK_CLOSED_SVG + '</span>' +
+        '<div class="popup-option-txt"><span class="popup-option-lbl">Restricted access</span>' +
+        '<span class="popup-option-sub">Private property, limited hours and/or requires admission</span></div></button>';
     }
 
     return html;
@@ -344,7 +387,12 @@
       buildPopupMain(local) + '</div>';
   }
 
+  function isRestricted(local) {
+    return local && local.restricted_count > 0;
+  }
+
   function getPinZIndex(local) {
+    if (isRestricted(local)) return -1000;
     var state = getPinStateForLocal(local);
     if (state === "unrated" && !(local && local.reported_off)) return 0;
     return 1000;
@@ -362,12 +410,14 @@
   }
 
   function getCityIcon(local, sd) {
+    if (isRestricted(local)) return icons.restricted;
     if (isReportedNotFound(local)) return icons.reportedNotFound;
     if (local && local.reported_off) return icons.reportedOff;
     return pinStateToIcon(getPinStateForLocal(local), "#2563eb");
   }
 
   function getOsmIcon(local) {
+    if (isRestricted(local)) return icons.restricted;
     if (isReportedNotFound(local)) return icons.reportedNotFound;
     if (local && local.reported_off) return icons.reportedOff;
     var color = powerUserMode ? "#0891b2" : "#2563eb";
@@ -385,13 +435,18 @@
       if (!citySD) return;
       if (!isCityRunning(citySD)) return;
       if (layerOptions.cityUniqueOnly && fountainHasOsmMatch(local)) return;
-      if (activeFilters.accessible && !fountainHasAccessible(local)) return;
-      if (activeFilters.bottle && !fountainHasBottle(local)) return;
-      if (activeFilters.dog && !fountainHasDog(local)) return;
-      if (!passesRatingFilter(local)) return;
-      if (layerOptions.showNotFound) {
-        if (local.not_found_count <= 0) return;
-      } else if (local.not_found) return;
+      if (isRestricted(local)) {
+        if (activeFilters.restricted || layerOptions.showNotFound) return;
+        if (activeFilters.accessible || activeFilters.bottle || activeFilters.dog) return;
+      } else {
+        if (activeFilters.accessible && !fountainHasAccessible(local)) return;
+        if (activeFilters.bottle && !fountainHasBottle(local)) return;
+        if (activeFilters.dog && !fountainHasDog(local)) return;
+        if (!passesRatingFilter(local)) return;
+        if (layerOptions.showNotFound) {
+          if (local.not_found_count <= 0) return;
+        } else if (local.not_found) return;
+      }
 
       var icon = layerOptions.showNotFound ? icons.reportedNotFound : getCityIcon(local, citySD);
       var cm = L.marker([local.lat, local.lon], { icon: icon, zIndexOffset: getPinZIndex(local) });
@@ -407,13 +462,18 @@
       if (!osmSD) return;
       if (isCityShutOff(local)) return;
       if (!powerUserMode && fountainHasCityGisMatch(local)) return;
-      if (activeFilters.accessible && !fountainHasAccessible(local)) return;
-      if (activeFilters.bottle && !fountainHasBottle(local)) return;
-      if (activeFilters.dog && !fountainHasDog(local)) return;
-      if (!passesRatingFilter(local)) return;
-      if (layerOptions.showNotFound) {
-        if (local.not_found_count <= 0) return;
-      } else if (local.not_found) return;
+      if (isRestricted(local)) {
+        if (activeFilters.restricted || layerOptions.showNotFound) return;
+        if (activeFilters.accessible || activeFilters.bottle || activeFilters.dog) return;
+      } else {
+        if (activeFilters.accessible && !fountainHasAccessible(local)) return;
+        if (activeFilters.bottle && !fountainHasBottle(local)) return;
+        if (activeFilters.dog && !fountainHasDog(local)) return;
+        if (!passesRatingFilter(local)) return;
+        if (layerOptions.showNotFound) {
+          if (local.not_found_count <= 0) return;
+        } else if (local.not_found) return;
+      }
 
       var icon = layerOptions.showNotFound ? icons.reportedNotFound : getOsmIcon(local);
       var om = L.marker([local.lat, local.lon], { icon: icon, zIndexOffset: getPinZIndex(local) });
@@ -455,11 +515,16 @@
     fountainList.forEach(function (local) {
       // Mirror renderCity / renderOsm visibility logic
       if (isCityShutOff(local)) return;
-      if (layerOptions.showNotFound ? local.not_found_count <= 0 : local.not_found) return;
-      if (activeFilters.accessible && !fountainHasAccessible(local)) return;
-      if (activeFilters.bottle && !fountainHasBottle(local)) return;
-      if (activeFilters.dog && !fountainHasDog(local)) return;
-      if (!passesRatingFilter(local)) return;
+      if (isRestricted(local)) {
+        if (activeFilters.restricted || layerOptions.showNotFound) return;
+        if (activeFilters.accessible || activeFilters.bottle || activeFilters.dog) return;
+      } else {
+        if (layerOptions.showNotFound ? local.not_found_count <= 0 : local.not_found) return;
+        if (activeFilters.accessible && !fountainHasAccessible(local)) return;
+        if (activeFilters.bottle && !fountainHasBottle(local)) return;
+        if (activeFilters.dog && !fountainHasDog(local)) return;
+        if (!passesRatingFilter(local)) return;
+      }
 
       var hasCityGis = fountainHasCityGisMatch(local);
       var hasOsm = fountainHasOsmMatch(local);
@@ -592,6 +657,40 @@
       });
   }
 
+  function submitRestricted(fountainId, undo) {
+    if (!API_BASE) return;
+    fetch(API_BASE + "/fountains/" + fountainId + "/restricted", {
+      method: undo ? "DELETE" : "POST",
+      headers: JSON_HEADERS,
+      body: JSON.stringify({ device_id: deviceId }),
+    })
+      .then(function (res) { return res.json(); })
+      .then(function (data) {
+        if (!data) return;
+        if (data.error) {
+          showError("Failed: " + data.error);
+          return;
+        }
+        var f = fountainIndex[fountainId];
+        if (f) {
+          f.restricted_count = data.restricted_count;
+          f.restricted = data.restricted;
+          f.last_restricted_at = data.last_restricted_at;
+          if (data.reported_off !== undefined) f.reported_off = data.reported_off;
+          if (data.off_reports !== undefined) f.off_reports = data.off_reports;
+          if (data.last_off_report_at !== undefined) f.last_off_report_at = data.last_off_report_at;
+          if (data.not_found_count !== undefined) f.not_found_count = data.not_found_count;
+          if (data.not_found !== undefined) f.not_found = data.not_found;
+          if (data.last_not_found_at !== undefined) f.last_not_found_at = data.last_not_found_at;
+        }
+        refreshOpenPopup(fountainId);
+        updateMarkerForFountain(fountainId);
+      })
+      .catch(function () {
+        showError("Failed to submit. Please try again.");
+      });
+  }
+
   function submitRating(fountainId, score) {
     if (!API_BASE) return;
     var isUnrating = myRatings[fountainId] === score;
@@ -684,6 +783,10 @@
           submitNotFound(fId, false, "add");
         } else if (act === "cancelGone") {
           swapPopupView(container, local, "report", false);
+        } else if (act === "reportPrivate") {
+          submitRestricted(fId, false);
+        } else if (act === "undoRestricted") {
+          submitRestricted(fId, true);
         }
       });
     });

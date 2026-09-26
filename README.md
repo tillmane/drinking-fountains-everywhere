@@ -16,7 +16,15 @@ Access to clean water is a basic human right, yet even in urban areas with high 
 
 ## Release History
 
-### V3.6: Onboarding and Rating Popup Improvements
+### V3.7: Marking Fountains with Access Limitations: September 26, 2026
+- Add the ability to mark a fountain as restricted. This site is designed to support and promote the use of public drinking fountains. There are some fountains on the map that may be found to have access limitations (private property, restricted hours, etc.).
+
+### V3.6.1: Simplify Not Rated Visual State: September 17, 2026
+- Change the not rated state from grey with question mark to blue, without icon
+- Move not rated below rated in the legend
+- Move the icons up on the welcome popup
+
+### V3.6: Onboarding and Rating Popup Improvements: September 14, 2026
 - Add legend to the welcome modal
 - Update the UX of the ratings popup to make it more quickly understandable
 - Remove city-reported Shut Off fountains from map -- and legend
@@ -212,14 +220,20 @@ Ratings and other user-contributed data attach to a **local fountain identifier*
 Upstream sources are matched to local fountains by **proximity within 30 meters**. Analysis of current data shows ~92 of 212 Seattle City GIS fountains have an OSM match at this threshold, with the match curve plateauing between 20-30m.
 
 ## Fountain State Logic
-| Rated? | Reported Off? | Reported Not Found 1-2 times? | Reported Not Found 3 times? | Rateable | Report Off button state | Not Found button state | Map Pin                                                 |
-| ------ | ------------- | ----------------------------- | --------------------------- | -------- | ----------------------- | ---------------------- | ------------------------------------------------------- |
-| N      | N             | N                             | N                           | Y        | Report off              | Not found              | grey with ?                                             |
-| Y or N | Y             | N                             | N                           | Y        | Report on               | Not found              | orange with X                                           |
-| Y or N | Y or N        | Y - by current user           | N                           | N        | not visible             | Undo not found         | orange with ?                                           |
-| Y or N | Y or N        | Y - by other users            | N                           | N        | not visible             | Confirm not found      | orange with ?                                           |
-| Y or N | Y or N        | Y or N                        | Y                           | Y        | Report on               | Undo not found         | not visible except in Admin mode shows as orange with ? |
-| Y      | N             | N                             | N                           | Y        | Report off              | Not found              | blue with thumb up or down                              |
+
+| Rated? | Reported Off? | Reported Not Found 1-2 times? | Reported Not Found 3 times? | Reported Private? | Rateable | Report Off button state        | Not Found button state         | Report Private button state    | Map Pin                                                 |
+| ------ | ------------- | ----------------------------- | --------------------------- | ----------------- | -------- | ------------------------------ | ------------------------------ | ------------------------------ | ------------------------------------------------------- |
+| N      | N             | N                             | N                           | N                 | Y        | visible behind Report an issue | visible behind Report an issue | visible behind Report an issue | solid blue                                              |
+| Y      | N             | N                             | N                           | N                 | Y        | visible behind Report an issue | visible behind Report an issue | visible behind Report an issue | blue with thumb up or down                              |
+| Y or N | Y             | N                             | N                           | N                 | N        | undo action                    | not visible                    | not visible                    | orange with X                                           |
+| Y or N | N             | Y - by current user           | N                           | N                 | N        | not visible                    | undo action                    | not visible                    | orange with ?                                           |
+| Y or N | N             | Y - by other users            | N                           | N                 | N        | not visible                    | confirm action                 | not visible                    | orange with ?                                           |
+| Y or N | N             | n/a                           | Y                           | N                 | N        | not visible                    | undo action                    | not visible                    | not visible except in Admin mode shows as orange with ? |
+| Y or N | N             | N                             | N                           | Y                 | N        | not visible                    | not visible                    | undo action                    | light blue with lock                                    |
+
+Note that this table reflects a couple overarching rules:
+1. A fountain can only be in one problem state at a time
+2. When a fountain is in problem state, any prior ratings (Rated? = Y or N) are retained although hidden from view. If the fountain is brought out of problem state (undo action), it reflects its previous ratings.
 
 ## Deployment
 
