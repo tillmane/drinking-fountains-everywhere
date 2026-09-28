@@ -430,7 +430,8 @@ html, body {
 
 /* ─── Filter pills ─────────────────────────────────────────── */
 
-#filter-pills {
+#filter-pills,
+#filter-pills-secondary {
   display: flex;
   align-items: center;
   gap: 6px;
@@ -1087,13 +1088,25 @@ html, body {
 @media (max-width: 540px) {
   #controls-bar {
     flex-wrap: wrap;
+    padding: 6px 10px;
+    gap: 5px;
   }
 
   #search-form {
-    flex-basis: 100%;
+    flex-basis: calc(100% - 42px);
+  }
+
+  #toolbar-close-btn {
+    order: 1;
   }
 
   #filter-pills {
+    order: 2;
+    flex-basis: 100%;
+  }
+
+  #filter-pills-secondary {
+    order: 3;
     flex-basis: 100%;
   }
 }
